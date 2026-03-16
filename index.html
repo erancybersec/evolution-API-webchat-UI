@@ -1,0 +1,2091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Organization Title — WhatsApp Manager</title>
+  <script src="https://unpkg.com/libphonenumber-js@1.11.4/bundle/libphonenumber-max.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    * { font-family: 'Inter', sans-serif; }
+    .sidebar-btn { transition: all .15s ease; }
+    .sidebar-btn.active { background: #25D366; color: white; }
+    .sidebar-btn:not(.active):hover { background: #f0fdf4; color: #15803d; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    textarea, input, select { transition: border-color .15s; }
+    textarea:focus, input:focus, select:focus { outline: none; border-color: #25D366; box-shadow: 0 0 0 3px rgba(37,211,102,.15); }
+    .chip-box input:focus { border-color: transparent !important; box-shadow: none !important; }
+    .response-box { font-family: 'Courier New', monospace; font-size: 13px; }
+    .btn-send { background: #25D366; transition: background .15s; }
+    .btn-send:hover { background: #1ebe5d; }
+    .btn-send:active { background: #17a34a; }
+    .pill { display: inline-block; background: #dcfce7; color: #166534; border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 600; }
+    .pill.error { background: #fee2e2; color: #991b1b; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    #config-modal { display: none; }
+    #config-modal.open { display: flex; }
+    .chip-box { display:flex; flex-wrap:wrap; gap:6px; border:1px solid #d1d5db; border-radius:0.5rem; padding:8px 10px; min-height:46px; cursor:text; background:#fff; }
+    .chip-box:focus-within { border-color:#25D366; box-shadow:0 0 0 3px rgba(37,211,102,.15); }
+    .chip { display:inline-flex; align-items:center; gap:4px; background:#dcfce7; color:#166534; border-radius:999px; padding:2px 8px 2px 10px; font-size:12px; font-weight:500; white-space:nowrap; }
+    .chip button { background:none; border:none; cursor:pointer; font-size:13px; line-height:1; padding:0 0 0 2px; color:inherit; opacity:.55; }
+    .chip button:hover { opacity:1; }
+    .btn-send:disabled { background:#9ca3af !important; cursor:not-allowed; }
+    .field-error { border-color: #ef4444 !important; box-shadow: 0 0 0 3px rgba(239,68,68,.12) !important; }
+    .field-error-msg { color: #dc2626; font-size: 11px; margin-top: 4px; display: block; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+<!-- Header -->
+<header class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-50 shadow-sm">
+  <div class="flex items-center gap-3">
+    <div class="w-9 h-9 rounded-full bg-[#25D366] flex items-center justify-center">
+      <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+    </div>
+    <div>
+      <h1 class="text-base font-bold text-gray-900">Organization Title</h1>
+      <p class="text-xs text-gray-500">WhatsApp Manager</p>
+    </div>
+  </div>
+  <div class="flex items-center gap-4">
+    <div class="flex items-center gap-2 bg-green-50 text-green-700 px-3 py-1.5 rounded-full text-sm font-medium border border-green-200">
+      <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+      Connected
+    </div>
+    <div class="text-xs text-gray-400">
+      Instance: <span id="header-instance" class="font-semibold text-gray-600">MyInstance</span>
+    </div>
+    <button onclick="openConfig()" class="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 border border-gray-200 hover:border-gray-300 px-3 py-1.5 rounded-lg transition-colors" title="Connection Settings">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3" stroke-width="2"/></svg>
+      Settings
+    </button>
+  </div>
+</header>
+
+<!-- Config Modal -->
+<div id="config-modal" class="fixed inset-0 z-[100] items-center justify-center bg-black/40 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+    <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+      <div>
+        <h2 class="text-base font-bold text-gray-900">Connection Settings</h2>
+        <p class="text-xs text-gray-500 mt-0.5">Saved locally in your browser</p>
+      </div>
+      <button onclick="closeConfig()" class="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="px-6 py-5 space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Server URL <span class="text-red-400">*</span></label>
+        <input id="cfg-base" type="text" placeholder="https://your-server.example.com" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+        <p class="text-xs text-gray-400 mt-1">No trailing slash</p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Instance Name <span class="text-red-400">*</span></label>
+        <input id="cfg-instance" type="text" placeholder="MyInstance" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">API Key <span class="text-red-400">*</span></label>
+        <div class="relative">
+          <input id="cfg-apikey" type="password" placeholder="••••••••••••••••" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm pr-10"/>
+          <button onclick="toggleApiKeyVisibility()" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+            <svg id="eye-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+          </button>
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Default Country <span class="text-gray-400 font-normal">(for local number format)</span></label>
+        <select id="cfg-country" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm bg-white">
+          <option value="IL">🇮🇱 Israel (+972)</option>
+          <option value="US">🇺🇸 United States (+1)</option>
+          <option value="GB">🇬🇧 United Kingdom (+44)</option>
+          <option value="FR">🇫🇷 France (+33)</option>
+          <option value="DE">🇩🇪 Germany (+49)</option>
+          <option value="AU">🇦🇺 Australia (+61)</option>
+          <option value="CA">🇨🇦 Canada (+1)</option>
+          <option value="BR">🇧🇷 Brazil (+55)</option>
+          <option value="IN">🇮🇳 India (+91)</option>
+          <option value="ZA">🇿🇦 South Africa (+27)</option>
+        </select>
+        <p class="text-xs text-gray-400 mt-1">Used to auto-complete local numbers (e.g. 0501234567 → 972501234567)</p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Delay Between Bulk Messages <span class="text-gray-400 font-normal">(random range, per message)</span></label>
+        <div class="flex items-center gap-2">
+          <div class="flex-1">
+            <label class="block text-xs text-gray-500 mb-1">Min (seconds)</label>
+            <input id="cfg-delay-min" type="number" min="0" max="300" step="0.1" placeholder="1" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
+          </div>
+          <span class="text-gray-400 mt-5">–</span>
+          <div class="flex-1">
+            <label class="block text-xs text-gray-500 mb-1">Max (seconds)</label>
+            <input id="cfg-delay-max" type="number" min="0" max="300" step="0.1" placeholder="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
+          </div>
+        </div>
+        <p class="text-xs text-gray-400 mt-1">Each message in a bulk send waits its own random delay — mimics human sending behaviour.</p>
+      </div>
+      <div id="cfg-status" class="hidden text-xs rounded-lg px-3 py-2"></div>
+    </div>
+    <div class="px-6 pb-5 flex gap-3">
+      <button onclick="saveConfig()" class="btn-send flex-1 text-white font-semibold py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        Save & Apply
+      </button>
+      <button onclick="testConnection()" class="flex-1 border border-gray-300 text-gray-600 font-semibold py-2.5 rounded-lg text-sm hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        Test Connection
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="flex h-[calc(100vh-65px)]">
+
+  <!-- Sidebar -->
+  <aside class="w-56 bg-white border-r border-gray-200 flex flex-col py-4 gap-1 px-3 overflow-y-auto shrink-0">
+    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 mb-2">Messages</p>
+    <button class="sidebar-btn active text-sm font-medium px-3 py-2.5 rounded-lg text-left flex items-center gap-2.5" onclick="switchTab('text', this)">
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+      Text
+    </button>
+    <button class="sidebar-btn text-sm font-medium px-3 py-2.5 rounded-lg text-left text-gray-600 flex items-center gap-2.5" onclick="switchTab('media', this)">
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+      Media
+    </button>
+    <button class="sidebar-btn text-sm font-medium px-3 py-2.5 rounded-lg text-left text-gray-600 flex items-center gap-2.5" onclick="switchTab('audio', this)">
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
+      Voice Note
+    </button>
+    <button class="sidebar-btn text-sm font-medium px-3 py-2.5 rounded-lg text-left text-gray-600 flex items-center gap-2.5" onclick="switchTab('location', this)">
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      Location
+    </button>
+    <button class="sidebar-btn text-sm font-medium px-3 py-2.5 rounded-lg text-left text-gray-600 flex items-center gap-2.5" onclick="switchTab('contact', this)">
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+      Contact
+    </button>
+    <button class="sidebar-btn text-sm font-medium px-3 py-2.5 rounded-lg text-left text-gray-600 flex items-center gap-2.5" onclick="switchTab('reaction', this)">
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      Reaction
+    </button>
+    <button class="sidebar-btn text-sm font-medium px-3 py-2.5 rounded-lg text-left text-gray-600 flex items-center gap-2.5" onclick="switchTab('poll', this)">
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+      Poll
+    </button>
+    <button class="sidebar-btn text-sm font-medium px-3 py-2.5 rounded-lg text-left text-gray-600 flex items-center gap-2.5" onclick="switchTab('buttons', this)">
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+      Buttons
+    </button>
+    <button class="sidebar-btn text-sm font-medium px-3 py-2.5 rounded-lg text-left text-gray-600 flex items-center gap-2.5" onclick="switchTab('list', this)">
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+      List Message
+    </button>
+    <button class="sidebar-btn text-sm font-medium px-3 py-2.5 rounded-lg text-left text-gray-600 flex items-center gap-2.5" onclick="switchTab('status', this)">
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3"/></svg>
+      Status / Story
+    </button>
+
+    <div class="my-3 border-t border-gray-200"></div>
+    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 mb-2">Groups</p>
+
+    <button class="sidebar-btn text-sm font-medium px-3 py-2.5 rounded-lg text-left text-gray-600 flex items-center gap-2.5" onclick="switchTab('groups', this)">
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+      Groups
+    </button>
+
+    <div class="my-3 border-t border-gray-200"></div>
+    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 mb-2">Account</p>
+
+    <button class="sidebar-btn text-sm font-medium px-3 py-2.5 rounded-lg text-left text-gray-600 flex items-center gap-2.5" onclick="switchTab('settings', this)">
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3" stroke-width="2"/></svg>
+      Profile Settings
+    </button>
+  </aside>
+
+  <!-- Main -->
+  <main class="flex-1 flex flex-col overflow-hidden">
+    <div class="flex-1 overflow-y-auto p-6">
+
+      <!-- TEXT -->
+      <div id="tab-text" class="tab-panel active max-w-2xl">
+        <h2 class="text-lg font-semibold text-gray-800 mb-1">Send Text Message</h2>
+        <p class="text-sm text-gray-500 mb-5">Send a plain or formatted text message to a contact or group.</p>
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Recipient(s) <span class="text-red-400">*</span></label>
+            <div id="text-chip-box" class="chip-box" onclick="document.getElementById('text-number').focus()">
+              <input id="text-number" type="text" autocomplete="off" placeholder="Type a number and press Enter…"
+                class="flex-1 min-w-[180px] border-none outline-none text-sm bg-transparent py-0.5 focus:ring-0 focus:border-none focus:outline-none focus:shadow-none"/>
+            </div>
+            <p class="text-xs text-gray-400 mt-1">
+              International format without + &nbsp;·&nbsp;
+              Press <kbd class="bg-gray-100 border border-gray-200 px-1 rounded text-xs">Enter</kbd> or comma after each number &nbsp;·&nbsp;
+              Paste multiple numbers (comma or newline separated)
+            </p>
+            <div id="text-progress" class="hidden text-xs rounded-lg px-3 py-2 mt-2"></div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Message <span class="text-red-400">*</span></label>
+            <textarea id="text-message" rows="5" placeholder="Type your message here..." class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm resize-none"></textarea>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Reply to Message ID <span class="text-gray-400 font-normal">(optional)</span></label>
+            <input id="text-quotedid" type="text" placeholder="Message ID to quote" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+          </div>
+          <div class="flex items-center gap-3 pt-1">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input id="text-delay-toggle" type="checkbox" class="w-4 h-4 accent-green-500" onchange="toggleDelay('text')"/>
+              <span class="text-sm text-gray-600">Add delay</span>
+            </label>
+            <input id="text-delay" type="number" placeholder="ms" class="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm hidden"/>
+          </div>
+          <button id="text-send-btn" onclick="sendText()" class="btn-send w-full text-white font-semibold py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+            <span id="text-send-label">Send Message</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- MEDIA -->
+      <div id="tab-media" class="tab-panel max-w-2xl">
+        <h2 class="text-lg font-semibold text-gray-800 mb-1">Send Media</h2>
+        <p class="text-sm text-gray-500 mb-5">Send image, video, document, or audio file via URL.</p>
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Recipient Number <span class="text-red-400">*</span></label>
+            <input id="media-number" type="text" placeholder="e.g. 972501234567" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Media Type <span class="text-red-400">*</span></label>
+            <select id="media-type" onchange="updateMimetype()" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm bg-white">
+              <option value="image">Image</option>
+              <option value="video">Video</option>
+              <option value="document">Document</option>
+              <option value="audio">Audio</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Media URL <span class="text-red-400">*</span></label>
+            <input id="media-url" type="text" placeholder="https://example.com/image.jpg" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">MIME Type <span class="text-red-400">*</span></label>
+            <input id="media-mimetype" type="text" placeholder="image/jpeg" value="image/jpeg" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">File Name</label>
+            <input id="media-filename" type="text" placeholder="file.jpg" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Caption</label>
+            <textarea id="media-caption" rows="3" placeholder="Optional caption..." class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm resize-none"></textarea>
+          </div>
+          <button onclick="sendMedia()" class="btn-send w-full text-white font-semibold py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+            Send Media
+          </button>
+        </div>
+      </div>
+
+      <!-- AUDIO / VOICE NOTE -->
+      <div id="tab-audio" class="tab-panel max-w-2xl">
+        <h2 class="text-lg font-semibold text-gray-800 mb-1">Send Voice Note</h2>
+        <p class="text-sm text-gray-500 mb-5">Send an audio file as a WhatsApp voice note (PTT).</p>
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Recipient Number <span class="text-red-400">*</span></label>
+            <input id="audio-number" type="text" placeholder="e.g. 972501234567" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Audio URL <span class="text-red-400">*</span></label>
+            <input id="audio-url" type="text" placeholder="https://example.com/audio.mp3" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+            <p class="text-xs text-gray-400 mt-1">Supported: mp3, ogg, m4a, wav</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <input id="audio-encoding" type="checkbox" checked class="w-4 h-4 accent-green-500"/>
+            <label for="audio-encoding" class="text-sm text-gray-600">Auto-encode to WhatsApp format</label>
+          </div>
+          <button onclick="sendAudio()" class="btn-send w-full text-white font-semibold py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+            Send Voice Note
+          </button>
+        </div>
+      </div>
+
+      <!-- LOCATION -->
+      <div id="tab-location" class="tab-panel max-w-2xl">
+        <h2 class="text-lg font-semibold text-gray-800 mb-1">Send Location</h2>
+        <p class="text-sm text-gray-500 mb-5">Share a map location with a contact.</p>
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Recipient Number <span class="text-red-400">*</span></label>
+            <input id="loc-number" type="text" placeholder="e.g. 972501234567" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Latitude <span class="text-red-400">*</span></label>
+              <input id="loc-lat" type="number" step="any" placeholder="31.7683" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Longitude <span class="text-red-400">*</span></label>
+              <input id="loc-lng" type="number" step="any" placeholder="35.2137" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Place Name</label>
+            <input id="loc-name" type="text" placeholder="Organization Title" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Address</label>
+            <input id="loc-address" type="text" placeholder="Full address..." class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+          </div>
+          <button onclick="sendLocation()" class="btn-send w-full text-white font-semibold py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+            Send Location
+          </button>
+        </div>
+      </div>
+
+      <!-- CONTACT -->
+      <div id="tab-contact" class="tab-panel max-w-2xl">
+        <h2 class="text-lg font-semibold text-gray-800 mb-1">Send Contact Card</h2>
+        <p class="text-sm text-gray-500 mb-5">Share a contact card (vCard) with a recipient.</p>
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Recipient Number <span class="text-red-400">*</span></label>
+            <input id="contact-number" type="text" placeholder="e.g. 972501234567" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+          </div>
+          <div class="border border-gray-200 rounded-lg p-4 space-y-3 bg-gray-50">
+            <p class="text-sm font-semibold text-gray-700">Contact to share</p>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Full Name <span class="text-red-400">*</span></label>
+              <input id="contact-name" type="text" placeholder="John Doe" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm bg-white"/>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Phone Number (with country code) <span class="text-red-400">*</span></label>
+              <input id="contact-phone" type="text" placeholder="972501234567" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm bg-white"/>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">WhatsApp Number (wuid)</label>
+              <input id="contact-wuid" type="text" placeholder="Same as phone if on WhatsApp" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm bg-white"/>
+            </div>
+          </div>
+          <button onclick="sendContact()" class="btn-send w-full text-white font-semibold py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+            Send Contact
+          </button>
+        </div>
+      </div>
+
+      <!-- REACTION -->
+      <div id="tab-reaction" class="tab-panel max-w-2xl">
+        <h2 class="text-lg font-semibold text-gray-800 mb-1">Send Reaction</h2>
+        <p class="text-sm text-gray-500 mb-5">React to an existing message with an emoji.</p>
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Chat JID <span class="text-red-400">*</span></label>
+            <input id="react-jid" type="text" placeholder="972501234567@s.whatsapp.net" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+            <p class="text-xs text-gray-400 mt-1">For groups use JID ending in @g.us</p>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Message ID <span class="text-red-400">*</span></label>
+            <input id="react-msgid" type="text" placeholder="3EB0..." class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+          </div>
+          <div>
+            <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
+              <input id="react-fromme" type="checkbox" checked class="w-4 h-4 accent-green-500"/>
+              Message sent by me (fromMe)
+            </label>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Reaction Emoji <span class="text-red-400">*</span></label>
+            <div class="flex flex-wrap gap-2 mb-3">
+              <button class="emoji-btn text-2xl p-1.5 rounded-lg hover:bg-gray-100 transition-colors" onclick="selectEmoji(this, '👍')">👍</button>
+              <button class="emoji-btn text-2xl p-1.5 rounded-lg hover:bg-gray-100 transition-colors" onclick="selectEmoji(this, '❤️')">❤️</button>
+              <button class="emoji-btn text-2xl p-1.5 rounded-lg hover:bg-gray-100 transition-colors" onclick="selectEmoji(this, '😂')">😂</button>
+              <button class="emoji-btn text-2xl p-1.5 rounded-lg hover:bg-gray-100 transition-colors" onclick="selectEmoji(this, '😮')">😮</button>
+              <button class="emoji-btn text-2xl p-1.5 rounded-lg hover:bg-gray-100 transition-colors" onclick="selectEmoji(this, '😢')">😢</button>
+              <button class="emoji-btn text-2xl p-1.5 rounded-lg hover:bg-gray-100 transition-colors" onclick="selectEmoji(this, '🙏')">🙏</button>
+              <button class="emoji-btn text-2xl p-1.5 rounded-lg hover:bg-gray-100 transition-colors" onclick="selectEmoji(this, '🔥')">🔥</button>
+              <button class="emoji-btn text-2xl p-1.5 rounded-lg hover:bg-gray-100 transition-colors" onclick="selectEmoji(this, '✅')">✅</button>
+            </div>
+            <input id="react-emoji" type="text" placeholder="Or type any emoji" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+          </div>
+          <button onclick="sendReaction()" class="btn-send w-full text-white font-semibold py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+            Send Reaction
+          </button>
+        </div>
+      </div>
+
+      <!-- POLL -->
+      <div id="tab-poll" class="tab-panel max-w-2xl">
+        <h2 class="text-lg font-semibold text-gray-800 mb-1">Send Poll</h2>
+        <p class="text-sm text-gray-500 mb-5">Create a poll with multiple choice options.</p>
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Recipient Number <span class="text-red-400">*</span></label>
+            <input id="poll-number" type="text" placeholder="e.g. 972501234567" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Poll Question <span class="text-red-400">*</span></label>
+            <input id="poll-question" type="text" placeholder="What is your question?" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Options <span class="text-red-400">*</span> <span class="text-gray-400 font-normal">(min 2, max 12)</span></label>
+            <div id="poll-options" class="space-y-2">
+              <div class="flex gap-2">
+                <input type="text" placeholder="Option 1" class="poll-opt flex-1 border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+              </div>
+              <div class="flex gap-2">
+                <input type="text" placeholder="Option 2" class="poll-opt flex-1 border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+              </div>
+            </div>
+            <button onclick="addPollOption()" class="mt-2 text-sm text-green-600 font-medium flex items-center gap-1 hover:text-green-700">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              Add Option
+            </button>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Max Selections Allowed</label>
+            <select id="poll-selectable" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm bg-white">
+              <option value="1">1 (single choice)</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="0">Unlimited</option>
+            </select>
+          </div>
+          <button onclick="sendPoll()" class="btn-send w-full text-white font-semibold py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+            Send Poll
+          </button>
+        </div>
+      </div>
+
+      <!-- BUTTONS -->
+      <div id="tab-buttons" class="tab-panel max-w-2xl">
+        <h2 class="text-lg font-semibold text-gray-800 mb-1">Send Button Message</h2>
+        <p class="text-sm text-gray-500 mb-5">Send a message with quick reply buttons (up to 3).</p>
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Recipient Number <span class="text-red-400">*</span></label>
+            <input id="btn-number" type="text" placeholder="e.g. 972501234567" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Title <span class="text-red-400">*</span></label>
+            <input id="btn-title" type="text" placeholder="Message title" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
+            <textarea id="btn-description" rows="3" placeholder="Message body text..." class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm resize-none"></textarea>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Footer</label>
+            <input id="btn-footer" type="text" placeholder="Footer text" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Buttons <span class="text-red-400">*</span> <span class="text-gray-400 font-normal">(max 3)</span></label>
+            <div id="buttons-list" class="space-y-2">
+              <div class="flex gap-2 items-center btn-row">
+                <input type="text" placeholder="Button label" class="btn-label flex-1 border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+                <input type="text" placeholder="Button ID" class="btn-id w-32 border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+              </div>
+            </div>
+            <button onclick="addButton()" class="mt-2 text-sm text-green-600 font-medium flex items-center gap-1 hover:text-green-700">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              Add Button
+            </button>
+          </div>
+          <button onclick="sendButtons()" class="btn-send w-full text-white font-semibold py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+            Send Buttons
+          </button>
+        </div>
+      </div>
+
+      <!-- LIST -->
+      <div id="tab-list" class="tab-panel max-w-2xl">
+        <h2 class="text-lg font-semibold text-gray-800 mb-1">Send List Message</h2>
+        <p class="text-sm text-gray-500 mb-5">Send a message with a scrollable list of options grouped in sections.</p>
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Recipient Number <span class="text-red-400">*</span></label>
+            <input id="list-number" type="text" placeholder="e.g. 972501234567" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Title <span class="text-red-400">*</span></label>
+            <input id="list-title" type="text" placeholder="Message title" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
+            <textarea id="list-description" rows="2" placeholder="Message body..." class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm resize-none"></textarea>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Button Text <span class="text-red-400">*</span></label>
+            <input id="list-btntext" type="text" placeholder="View Options" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Footer</label>
+            <input id="list-footer" type="text" placeholder="Footer text" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Sections <span class="text-red-400">*</span></label>
+            <div id="list-sections" class="space-y-3">
+              <div class="section-block border border-gray-200 rounded-lg p-3 space-y-2 bg-gray-50">
+                <input type="text" placeholder="Section title" class="section-title w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white font-medium"/>
+                <div class="rows-container space-y-2">
+                  <div class="flex gap-2 row-entry">
+                    <input type="text" placeholder="Option title" class="row-title flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"/>
+                    <input type="text" placeholder="Description" class="row-desc flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"/>
+                    <input type="text" placeholder="ID" class="row-id w-20 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"/>
+                  </div>
+                </div>
+                <button onclick="addListRow(this)" class="text-xs text-green-600 font-medium flex items-center gap-1 hover:text-green-700">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                  Add row
+                </button>
+              </div>
+            </div>
+            <button onclick="addListSection()" class="mt-2 text-sm text-green-600 font-medium flex items-center gap-1 hover:text-green-700">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              Add Section
+            </button>
+          </div>
+          <button onclick="sendList()" class="btn-send w-full text-white font-semibold py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+            Send List
+          </button>
+        </div>
+      </div>
+
+      <!-- STATUS / STORY -->
+      <div id="tab-status" class="tab-panel max-w-2xl">
+        <h2 class="text-lg font-semibold text-gray-800 mb-1">Send Status / Story</h2>
+        <p class="text-sm text-gray-500 mb-5">Post a WhatsApp status update visible to your contacts.</p>
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Type <span class="text-red-400">*</span></label>
+            <select id="status-type" onchange="updateStatusFields()" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm bg-white">
+              <option value="text">Text</option>
+              <option value="image">Image</option>
+              <option value="video">Video</option>
+              <option value="audio">Audio</option>
+            </select>
+          </div>
+          <div id="status-content-wrap">
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Content <span class="text-red-400">*</span></label>
+            <textarea id="status-content" rows="4" placeholder="Your status text..." class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm resize-none"></textarea>
+          </div>
+          <div id="status-media-wrap" class="hidden">
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Media URL <span class="text-red-400">*</span></label>
+            <input id="status-media-url" type="text" placeholder="https://example.com/image.jpg" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+          </div>
+          <div id="status-caption-wrap" class="hidden">
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Caption</label>
+            <input id="status-caption" type="text" placeholder="Caption text" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+          </div>
+          <div id="status-bg-wrap">
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Background Color</label>
+            <div class="flex items-center gap-3">
+              <input id="status-bgcolor" type="color" value="#25D366" class="w-10 h-10 rounded cursor-pointer border border-gray-300"/>
+              <input id="status-bgcolor-text" type="text" value="#25D366" placeholder="#000000" class="w-32 border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm" oninput="syncColor(this)"/>
+            </div>
+          </div>
+          <div id="status-font-wrap">
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Font Style</label>
+            <select id="status-font" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm bg-white">
+              <option value="0">Default (Sans)</option>
+              <option value="1">Serif</option>
+              <option value="2">Monospace</option>
+              <option value="3">Italic</option>
+              <option value="4">Handwriting</option>
+            </select>
+          </div>
+          <div>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input id="status-allcontacts" type="checkbox" checked class="w-4 h-4 accent-green-500" onchange="toggleStatusContacts()"/>
+              <span class="text-sm text-gray-700">Send to all contacts</span>
+            </label>
+          </div>
+          <div id="status-jids-wrap" class="hidden">
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Specific JIDs</label>
+            <textarea id="status-jids" rows="3" placeholder="One per line: 972501234567@s.whatsapp.net" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm resize-none"></textarea>
+          </div>
+          <button onclick="sendStatus()" class="btn-send w-full text-white font-semibold py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+            Post Status
+          </button>
+        </div>
+      </div>
+
+      <!-- GROUPS -->
+      <div id="tab-groups" class="tab-panel max-w-4xl">
+        <h2 class="text-lg font-semibold text-gray-800 mb-1">Groups</h2>
+        <p class="text-sm text-gray-500 mb-5">Browse, message, create and manage your WhatsApp groups.</p>
+
+        <!-- Inner tabs -->
+        <div class="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 w-fit">
+          <button id="gtab-browse-btn" onclick="switchGroupTab('browse')" class="gtab-btn px-4 py-2 text-sm font-medium rounded-lg bg-white shadow-sm text-gray-800 transition-all">Browse & Send</button>
+          <button id="gtab-create-btn" onclick="switchGroupTab('create')" class="gtab-btn px-4 py-2 text-sm font-medium rounded-lg text-gray-500 hover:text-gray-700 transition-all">Create Group</button>
+          <button id="gtab-manage-btn" onclick="switchGroupTab('manage')" class="gtab-btn px-4 py-2 text-sm font-medium rounded-lg text-gray-500 hover:text-gray-700 transition-all">Manage Group</button>
+        </div>
+
+        <!-- BROWSE & SEND -->
+        <div id="gtab-browse" class="gtab-panel">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+            <!-- Group list -->
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex flex-col gap-3">
+              <div class="flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-gray-800">My Groups</h3>
+                <button onclick="fetchGroups()" class="btn-send text-white text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                  Load Groups
+                </button>
+              </div>
+              <input id="group-search" type="text" placeholder="Search groups..." oninput="filterGroups()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
+              <div class="flex items-center justify-between text-xs text-gray-500">
+                <span id="groups-count">No groups loaded</span>
+                <div class="flex gap-3">
+                  <button onclick="selectAllGroups()" class="text-green-600 hover:text-green-700 font-medium">Select All</button>
+                  <button onclick="clearGroupSelection()" class="text-gray-400 hover:text-gray-600 font-medium">Clear</button>
+                </div>
+              </div>
+              <div id="group-list" class="overflow-y-auto max-h-72 space-y-1 pr-1">
+                <p class="text-xs text-gray-400 text-center py-8">Click "Load Groups" to fetch your groups</p>
+              </div>
+            </div>
+
+            <!-- Selected + Broadcast composer -->
+            <div class="flex flex-col gap-4">
+              <!-- Selected chips -->
+              <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+                <div class="flex items-center justify-between mb-2">
+                  <h3 class="text-sm font-semibold text-gray-800">Selected Groups</h3>
+                  <span id="selected-count" class="text-xs text-gray-400">0 selected</span>
+                </div>
+                <div id="selected-chips" class="flex flex-wrap gap-2 min-h-[40px]">
+                  <p class="text-xs text-gray-400 self-center">No groups selected</p>
+                </div>
+              </div>
+
+              <!-- Broadcast composer -->
+              <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex flex-col gap-4">
+                <h3 class="text-sm font-semibold text-gray-800">Broadcast Message</h3>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1.5">Message Type</label>
+                  <select id="bc-type" onchange="updateBroadcastFields()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+                    <option value="text">Text</option>
+                    <option value="media">Media (Image / Video / Doc)</option>
+                    <option value="poll">Poll</option>
+                  </select>
+                </div>
+
+                <!-- Text -->
+                <div id="bc-text-wrap">
+                  <label class="block text-xs font-medium text-gray-600 mb-1.5">Message <span class="text-red-400">*</span></label>
+                  <textarea id="bc-text" rows="4" placeholder="Type your message..." class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"></textarea>
+                </div>
+
+                <!-- Media -->
+                <div id="bc-media-wrap" class="hidden space-y-2">
+                  <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1.5">Media Type</label>
+                    <select id="bc-mediatype" onchange="updateBcMime()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+                      <option value="image">Image</option>
+                      <option value="video">Video</option>
+                      <option value="document">Document</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1.5">Media URL <span class="text-red-400">*</span></label>
+                    <input id="bc-media-url" type="text" placeholder="https://example.com/file.jpg" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1.5">MIME Type</label>
+                    <input id="bc-mimetype" type="text" value="image/jpeg" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1.5">Caption</label>
+                    <input id="bc-caption" type="text" placeholder="Optional caption" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
+                  </div>
+                </div>
+
+                <!-- Poll -->
+                <div id="bc-poll-wrap" class="hidden space-y-2">
+                  <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1.5">Poll Question <span class="text-red-400">*</span></label>
+                    <input id="bc-poll-q" type="text" placeholder="Your question?" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1.5">Options <span class="text-gray-400 font-normal">(min 2)</span></label>
+                    <div id="bc-poll-opts" class="space-y-1.5">
+                      <input type="text" placeholder="Option 1" class="bc-poll-opt w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
+                      <input type="text" placeholder="Option 2" class="bc-poll-opt w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
+                    </div>
+                    <button onclick="addBcPollOpt()" class="mt-1.5 text-xs text-green-600 font-medium hover:text-green-700 flex items-center gap-1">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg> Add option
+                    </button>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1.5">Max Selections</label>
+                    <select id="bc-poll-sel" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+                      <option value="1">1 (single choice)</option>
+                      <option value="2">2</option>
+                      <option value="0">Unlimited</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div id="bc-progress" class="hidden text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2"></div>
+
+                <button onclick="broadcastMessage()" class="btn-send w-full text-white font-semibold py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>
+                  Broadcast to Selected Groups
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CREATE GROUP -->
+        <div id="gtab-create" class="glab-panel hidden max-w-2xl">
+          <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Group Name <span class="text-red-400">*</span></label>
+              <input id="cg-subject" type="text" placeholder="My Group" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
+              <textarea id="cg-desc" rows="3" placeholder="Group description..." class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm resize-none"></textarea>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Participants <span class="text-red-400">*</span> <span class="text-gray-400 font-normal">(one per line, international format)</span></label>
+              <textarea id="cg-participants" rows="5" placeholder="972501234567&#10;972509876543&#10;..." class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm resize-none font-mono"></textarea>
+            </div>
+            <button onclick="createGroup()" class="btn-send w-full text-white font-semibold py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              Create Group
+            </button>
+          </div>
+        </div>
+
+        <!-- MANAGE GROUP -->
+        <div id="gtab-manage" class="glab-panel hidden max-w-2xl space-y-5">
+
+          <!-- Group picker -->
+          <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-3">
+            <h3 class="text-sm font-semibold text-gray-800">Select Group to Manage</h3>
+            <div class="flex gap-2">
+              <input id="mg-jid" type="text" placeholder="1234567890-1234567890@g.us" class="flex-1 border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm font-mono"/>
+              <button onclick="loadGroupInfo()" class="btn-send text-white text-sm font-semibold px-4 py-2.5 rounded-lg flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                Load
+              </button>
+            </div>
+            <p class="text-xs text-gray-400">Or pick from Browse tab — JID is auto-filled when you click "Manage" on a group</p>
+            <!-- Group info preview -->
+            <div id="mg-preview" class="hidden bg-gray-50 rounded-lg p-3 flex items-center gap-3">
+              <div id="mg-avatar" class="w-10 h-10 rounded-full bg-green-200 flex items-center justify-center text-green-800 font-bold text-sm shrink-0">?</div>
+              <div class="flex-1 min-w-0">
+                <p id="mg-name" class="font-semibold text-gray-800 text-sm truncate"></p>
+                <p id="mg-desc-display" class="text-xs text-gray-500 truncate"></p>
+                <p id="mg-meta" class="text-xs text-gray-400"></p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Update name / description -->
+          <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-4">
+            <h3 class="text-sm font-semibold text-gray-800">Group Info</h3>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1.5">New Name</label>
+              <div class="flex gap-2">
+                <input id="mg-new-name" type="text" placeholder="New group name" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
+                <button onclick="updateGroupSubject()" class="btn-send text-white text-xs font-semibold px-3 py-2 rounded-lg">Update</button>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1.5">New Description</label>
+              <div class="flex gap-2 items-start">
+                <textarea id="mg-new-desc" rows="2" placeholder="New description..." class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"></textarea>
+                <button onclick="updateGroupDescription()" class="btn-send text-white text-xs font-semibold px-3 py-2 rounded-lg mt-0">Update</button>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1.5">Group Picture URL</label>
+              <div class="flex gap-2">
+                <input id="mg-pic-url" type="text" placeholder="https://example.com/img.jpg" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
+                <button onclick="updateGroupPicture()" class="btn-send text-white text-xs font-semibold px-3 py-2 rounded-lg">Set</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Participants -->
+          <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-semibold text-gray-800">Participants</h3>
+              <button onclick="fetchGroupParticipants()" class="text-xs text-green-600 font-medium border border-green-300 px-3 py-1.5 rounded-lg hover:bg-green-50 transition-colors flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                Load Members
+              </button>
+            </div>
+            <div id="mg-participants-list" class="max-h-48 overflow-y-auto space-y-1 hidden"></div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1.5">Numbers <span class="text-gray-400 font-normal">(one per line)</span></label>
+              <textarea id="mg-part-numbers" rows="3" placeholder="972501234567&#10;972509876543" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none font-mono"></textarea>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="updateParticipants('add')" class="btn-send text-white text-xs font-semibold py-2 rounded-lg flex items-center justify-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg> Add
+              </button>
+              <button onclick="updateParticipants('remove')" class="bg-red-500 hover:bg-red-600 text-white text-xs font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/></svg> Remove
+              </button>
+              <button onclick="updateParticipants('promote')" class="bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg> Promote to Admin
+              </button>
+              <button onclick="updateParticipants('demote')" class="bg-orange-400 hover:bg-orange-500 text-white text-xs font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg> Demote
+              </button>
+            </div>
+          </div>
+
+          <!-- Settings -->
+          <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-3">
+            <h3 class="text-sm font-semibold text-gray-800">Group Settings</h3>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1.5">Who can send messages</label>
+              <div class="flex gap-2">
+                <button onclick="updateGroupSetting('announcement')" class="flex-1 border border-gray-300 text-gray-600 text-xs font-medium py-2 rounded-lg hover:bg-gray-50 transition-colors">Admins Only</button>
+                <button onclick="updateGroupSetting('not_announcement')" class="flex-1 border border-gray-300 text-gray-600 text-xs font-medium py-2 rounded-lg hover:bg-gray-50 transition-colors">All Members</button>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1.5">Who can edit group info</label>
+              <div class="flex gap-2">
+                <button onclick="updateGroupSetting('locked')" class="flex-1 border border-gray-300 text-gray-600 text-xs font-medium py-2 rounded-lg hover:bg-gray-50 transition-colors">Admins Only</button>
+                <button onclick="updateGroupSetting('unlocked')" class="flex-1 border border-gray-300 text-gray-600 text-xs font-medium py-2 rounded-lg hover:bg-gray-50 transition-colors">All Members</button>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1.5">Disappearing Messages</label>
+              <div class="grid grid-cols-4 gap-2">
+                <button onclick="setEphemeral(0)"      class="border border-gray-300 text-gray-600 text-xs font-medium py-2 rounded-lg hover:bg-gray-50 transition-colors">Off</button>
+                <button onclick="setEphemeral(86400)"  class="border border-gray-300 text-gray-600 text-xs font-medium py-2 rounded-lg hover:bg-gray-50 transition-colors">24h</button>
+                <button onclick="setEphemeral(604800)" class="border border-gray-300 text-gray-600 text-xs font-medium py-2 rounded-lg hover:bg-gray-50 transition-colors">7d</button>
+                <button onclick="setEphemeral(7776000)"class="border border-gray-300 text-gray-600 text-xs font-medium py-2 rounded-lg hover:bg-gray-50 transition-colors">90d</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Invite link -->
+          <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-3">
+            <h3 class="text-sm font-semibold text-gray-800">Invite Link</h3>
+            <div class="flex gap-2">
+              <button onclick="getInviteCode()" class="btn-send text-white text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                Get Link
+              </button>
+              <button onclick="revokeInviteCode()" class="border border-red-300 text-red-500 text-xs font-semibold px-4 py-2 rounded-lg hover:bg-red-50 transition-colors flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                Revoke
+              </button>
+            </div>
+            <div id="mg-invite-display" class="hidden bg-gray-50 rounded-lg px-3 py-2 flex items-center justify-between gap-2">
+              <span id="mg-invite-url" class="text-xs text-green-700 font-mono break-all"></span>
+              <button onclick="copyInviteLink()" class="shrink-0 text-xs text-gray-500 hover:text-gray-700 border border-gray-300 px-2 py-1 rounded">Copy</button>
+            </div>
+          </div>
+
+          <!-- Leave group -->
+          <div class="bg-white rounded-xl border border-red-100 shadow-sm p-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-sm font-semibold text-red-600">Leave Group</h3>
+                <p class="text-xs text-gray-500 mt-0.5">Remove this account from the group.</p>
+              </div>
+              <button onclick="leaveGroup()" class="border border-red-300 text-red-500 font-semibold text-sm px-4 py-2 rounded-lg hover:bg-red-50 transition-colors flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                Leave Group
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+      <!-- SETTINGS -->
+      <div id="tab-settings" class="tab-panel max-w-2xl space-y-6">
+        <div>
+          <h2 class="text-lg font-semibold text-gray-800 mb-1">Profile Settings</h2>
+          <p class="text-sm text-gray-500">View and update your WhatsApp account profile.</p>
+        </div>
+
+        <!-- Fetch Profile -->
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-semibold text-gray-800">My Profile Info</h3>
+              <p class="text-xs text-gray-500 mt-0.5">Fetch current name, status, and picture of this account.</p>
+            </div>
+            <button onclick="fetchMyProfile()" class="btn-send text-white text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              Fetch Profile
+            </button>
+          </div>
+          <div id="profile-preview" class="hidden bg-gray-50 rounded-lg p-4 flex items-center gap-4">
+            <img id="profile-pic" src="" alt="Profile" class="w-16 h-16 rounded-full object-cover border-2 border-green-200"/>
+            <div>
+              <p id="profile-name-display" class="font-semibold text-gray-800 text-sm"></p>
+              <p id="profile-status-display" class="text-gray-500 text-xs mt-0.5"></p>
+              <p id="profile-number-display" class="text-gray-400 text-xs mt-0.5"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Update Name -->
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+          <h3 class="text-sm font-semibold text-gray-800">Update Display Name</h3>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">New Name <span class="text-red-400">*</span></label>
+            <input id="profile-new-name" type="text" placeholder="Organization Title" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+          </div>
+          <button onclick="updateProfileName()" class="btn-send w-full text-white font-semibold py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            Update Name
+          </button>
+        </div>
+
+        <!-- Update Status/Bio -->
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+          <h3 class="text-sm font-semibold text-gray-800">Update Status / Bio</h3>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">New Status <span class="text-red-400">*</span></label>
+            <textarea id="profile-new-status" rows="3" placeholder="Available for booking..." class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm resize-none"></textarea>
+          </div>
+          <button onclick="updateProfileStatus()" class="btn-send w-full text-white font-semibold py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            Update Status
+          </button>
+        </div>
+
+        <!-- Update Picture -->
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+          <h3 class="text-sm font-semibold text-gray-800">Update Profile Picture</h3>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Image URL <span class="text-red-400">*</span></label>
+            <input id="profile-pic-url" type="text" placeholder="https://example.com/photo.jpg" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+            <p class="text-xs text-gray-400 mt-1">JPEG or PNG. The server will fetch and encode it automatically.</p>
+          </div>
+          <div class="flex gap-3">
+            <button onclick="updateProfilePicture()" class="btn-send flex-1 text-white font-semibold py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              Set Picture
+            </button>
+            <button onclick="removeProfilePicture()" class="flex-1 border border-red-300 text-red-500 font-semibold py-2.5 rounded-lg text-sm hover:bg-red-50 transition-colors flex items-center justify-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              Remove Picture
+            </button>
+          </div>
+        </div>
+
+        <!-- Privacy Settings -->
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-semibold text-gray-800">Privacy Settings</h3>
+              <p class="text-xs text-gray-500 mt-0.5">Control who can see your info.</p>
+            </div>
+            <button onclick="fetchPrivacy()" class="text-sm text-green-600 font-medium border border-green-300 px-4 py-2 rounded-lg hover:bg-green-50 transition-colors flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              Load Current
+            </button>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1.5">Last Seen</label>
+              <select id="privacy-last" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+                <option value="all">Everyone</option>
+                <option value="contacts">My Contacts</option>
+                <option value="contact_blacklist">Contacts Except...</option>
+                <option value="none">Nobody</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1.5">Online Status</label>
+              <select id="privacy-online" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+                <option value="all">Everyone</option>
+                <option value="match_last_seen">Same as Last Seen</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1.5">Profile Photo</label>
+              <select id="privacy-profile" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+                <option value="all">Everyone</option>
+                <option value="contacts">My Contacts</option>
+                <option value="contact_blacklist">Contacts Except...</option>
+                <option value="none">Nobody</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1.5">About / Status</label>
+              <select id="privacy-status" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+                <option value="all">Everyone</option>
+                <option value="contacts">My Contacts</option>
+                <option value="contact_blacklist">Contacts Except...</option>
+                <option value="none">Nobody</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1.5">Read Receipts</label>
+              <select id="privacy-readreceipts" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+                <option value="all">Enabled (Everyone)</option>
+                <option value="none">Disabled</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1.5">Add to Groups</label>
+              <select id="privacy-groupadd" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+                <option value="all">Everyone</option>
+                <option value="contacts">My Contacts</option>
+                <option value="contact_blacklist">Contacts Except...</option>
+                <option value="none">Nobody</option>
+              </select>
+            </div>
+          </div>
+          <button onclick="updatePrivacy()" class="btn-send w-full text-white font-semibold py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            Save Privacy Settings
+          </button>
+        </div>
+      </div>
+
+    <!-- Response Panel -->
+    <div class="border-t border-gray-200 bg-white">
+      <div class="flex items-center justify-between px-6 py-3 border-b border-gray-100">
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-semibold text-gray-700">API Response</span>
+          <span id="resp-badge" class="hidden pill">OK</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span id="resp-endpoint" class="text-xs text-gray-400 font-mono"></span>
+          <button onclick="clearResponse()" class="text-xs text-gray-400 hover:text-gray-600 transition-colors">Clear</button>
+        </div>
+      </div>
+      <div id="response-area" class="response-box text-gray-600 px-6 py-3 h-36 overflow-y-auto bg-gray-50 text-xs leading-relaxed">
+        <span class="text-gray-400">Response will appear here after sending...</span>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  // ── CONFIG (localStorage-backed) ──────────────────────────────────────────
+  const DEFAULTS = {
+    base: '',
+    instance: '',
+    apikey: '',
+    country: 'IL',
+    delayMin: 1,
+    delayMax: 3
+  };
+
+  function getCfg() {
+    return {
+      base:     localStorage.getItem('wa_base')      || '',
+      instance: localStorage.getItem('wa_instance')  || '',
+      apikey:   localStorage.getItem('wa_apikey')    || '',
+      country:  localStorage.getItem('wa_country')   || 'IL',
+      delayMin: parseFloat(localStorage.getItem('wa_delay_min')) || 1,
+      delayMax: parseFloat(localStorage.getItem('wa_delay_max')) || 3,
+    };
+  }
+
+  function randomDelay() {
+    const { delayMin, delayMax } = getCfg();
+    // inputs are in seconds — convert to ms for setTimeout
+    const ms = (Math.random() * (delayMax - delayMin) + delayMin) * 1000;
+    return new Promise(r => setTimeout(r, ms));
+  }
+
+  function applyConfig() {
+    const cfg = getCfg();
+    document.getElementById('header-instance').textContent = cfg.instance;
+  }
+
+  function openConfig() {
+    const cfg = getCfg();
+    document.getElementById('cfg-base').value      = cfg.base;
+    document.getElementById('cfg-instance').value  = cfg.instance;
+    document.getElementById('cfg-apikey').value    = cfg.apikey;
+    document.getElementById('cfg-country').value   = cfg.country;
+    document.getElementById('cfg-delay-min').value = cfg.delayMin;
+    document.getElementById('cfg-delay-max').value = cfg.delayMax;
+    document.getElementById('cfg-status').className = 'hidden text-xs rounded-lg px-3 py-2';
+    document.getElementById('config-modal').classList.add('open');
+  }
+
+  function closeConfig() {
+    document.getElementById('config-modal').classList.remove('open');
+  }
+
+  function toggleApiKeyVisibility() {
+    const input = document.getElementById('cfg-apikey');
+    const icon  = document.getElementById('eye-icon');
+    if (input.type === 'password') {
+      input.type = 'text';
+      icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>';
+    } else {
+      input.type = 'password';
+      icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>';
+    }
+  }
+
+  function saveConfig() {
+    const base     = document.getElementById('cfg-base').value.trim().replace(/\/$/, '');
+    const instance = document.getElementById('cfg-instance').value.trim();
+    const apikey   = document.getElementById('cfg-apikey').value.trim();
+    const country  = document.getElementById('cfg-country').value;
+    const delayMin = parseFloat(document.getElementById('cfg-delay-min').value) || DEFAULTS.delayMin;
+    const delayMax = parseFloat(document.getElementById('cfg-delay-max').value) || DEFAULTS.delayMax;
+    const status   = document.getElementById('cfg-status');
+    if (!base || !instance || !apikey) {
+      status.className = 'text-xs rounded-lg px-3 py-2 bg-red-50 text-red-600';
+      status.textContent = '⚠ All fields are required.';
+      return;
+    }
+    if (delayMin > delayMax) {
+      status.className = 'text-xs rounded-lg px-3 py-2 bg-red-50 text-red-600';
+      status.textContent = '⚠ Min delay must be less than or equal to Max delay.';
+      return;
+    }
+    localStorage.setItem('wa_base',      base);
+    localStorage.setItem('wa_instance',  instance);
+    localStorage.setItem('wa_apikey',    apikey);
+    localStorage.setItem('wa_country',   country);
+    localStorage.setItem('wa_delay_min', delayMin);
+    localStorage.setItem('wa_delay_max', delayMax);
+    applyConfig();
+    status.className = 'text-xs rounded-lg px-3 py-2 bg-green-50 text-green-700';
+    status.textContent = '✓ Settings saved successfully.';
+    setTimeout(closeConfig, 800);
+  }
+
+  async function testConnection() {
+    const base     = document.getElementById('cfg-base').value.trim().replace(/\/$/, '');
+    const instance = document.getElementById('cfg-instance').value.trim();
+    const apikey   = document.getElementById('cfg-apikey').value.trim();
+    const status   = document.getElementById('cfg-status');
+    if (!base || !instance || !apikey) {
+      status.className = 'text-xs rounded-lg px-3 py-2 bg-red-50 text-red-600';
+      status.textContent = '⚠ Fill in all fields before testing.';
+      return;
+    }
+    status.className = 'text-xs rounded-lg px-3 py-2 bg-gray-100 text-gray-600';
+    status.textContent = '⏳ Testing connection...';
+    try {
+      const res = await fetch(`${base}/instance/fetchInstances`, {
+        headers: { 'apikey': apikey }
+      });
+      const data = await res.json();
+      const instances = Array.isArray(data) ? data : [];
+      const found = instances.find(i => i.name === instance);
+      if (found) {
+        const state = found.connectionStatus === 'open' ? '🟢 Connected' : '🟡 ' + found.connectionStatus;
+        status.className = 'text-xs rounded-lg px-3 py-2 bg-green-50 text-green-700';
+        status.textContent = `✓ Instance found — ${state} (${found.profileName || found.name})`;
+      } else if (instances.length > 0) {
+        status.className = 'text-xs rounded-lg px-3 py-2 bg-yellow-50 text-yellow-700';
+        status.textContent = `⚠ Server OK but instance "${instance}" not found. Available: ${instances.map(i => i.name).join(', ')}`;
+      } else {
+        status.className = 'text-xs rounded-lg px-3 py-2 bg-red-50 text-red-600';
+        status.textContent = '✗ Server responded but no instances found.';
+      }
+    } catch (e) {
+      status.className = 'text-xs rounded-lg px-3 py-2 bg-red-50 text-red-600';
+      status.textContent = `✗ Connection failed: ${e.message}`;
+    }
+  }
+
+  // Close modal on backdrop click
+  document.getElementById('config-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeConfig();
+  });
+
+  // Init config on load — auto-open settings if not yet configured
+  applyConfig();
+  if (!localStorage.getItem('wa_apikey') || !localStorage.getItem('wa_base')) {
+    openConfig();
+  }
+
+  // ── PHONE VALIDATION (libphonenumber-js) ──────────────────────────────────
+  function validatePhone(raw) {
+    if (!raw || !raw.trim()) return null;
+    const defaultCountry = getCfg().country || 'IL';
+    try {
+      const phone = window.libphonenumber.parsePhoneNumber(raw.trim(), defaultCountry);
+      if (phone && phone.isValid()) {
+        return phone.number.replace('+', ''); // E.164 without leading +
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function parsePhoneLines(text) {
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const valid = [], invalid = [];
+    lines.forEach(l => {
+      const n = validatePhone(l);
+      n ? valid.push(n) : invalid.push(l);
+    });
+    return { valid, invalid };
+  }
+
+  function showFieldError(el, msg) {
+    el.classList.add('field-error');
+    // remove any existing error msg
+    const existing = el.parentElement.querySelector('.field-error-msg');
+    if (existing) existing.remove();
+    const span = document.createElement('span');
+    span.className = 'field-error-msg';
+    span.textContent = msg;
+    el.insertAdjacentElement('afterend', span);
+  }
+
+  function clearFieldError(el) {
+    el.classList.remove('field-error');
+    const msg = el.parentElement ? el.parentElement.querySelector('.field-error-msg') : null;
+    if (msg) msg.remove();
+  }
+
+  // Wire up clearFieldError on all number inputs
+  document.addEventListener('DOMContentLoaded', () => {
+    ['media-number','audio-number','loc-number','contact-number',
+     'poll-number','btn-number','list-number',
+     'cg-participants','mg-part-numbers'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', () => clearFieldError(el));
+    });
+  });
+
+  // ── GROUPS ────────────────────────────────────────────────────────────────
+  let allGroups = [];
+  let selectedGroups = {}; // { jid: name }
+
+  function switchGroupTab(name) {
+    document.querySelectorAll('.gtab-btn').forEach(b => {
+      b.classList.remove('bg-white', 'shadow-sm', 'text-gray-800');
+      b.classList.add('text-gray-500');
+    });
+    document.getElementById(`gtab-browse`).classList.add('hidden');
+    document.getElementById(`gtab-create`).classList.add('hidden');
+    document.getElementById(`gtab-manage`).classList.add('hidden');
+    document.getElementById(`gtab-${name}`).classList.remove('hidden');
+    const btn = document.getElementById(`gtab-${name}-btn`);
+    btn.classList.add('bg-white', 'shadow-sm', 'text-gray-800');
+    btn.classList.remove('text-gray-500');
+  }
+
+  async function fetchGroups() {
+    const cfg = getCfg();
+    const url = `${cfg.base}/group/fetchAllGroups/${cfg.instance}?getParticipants=false`;
+    setResponse('⏳ Fetching groups...', null);
+    document.getElementById('resp-endpoint').textContent = `GET /group/fetchAllGroups/${cfg.instance}`;
+    try {
+      const res = await fetch(url, { headers: { 'apikey': cfg.apikey } });
+      const data = await res.json();
+      allGroups = Array.isArray(data) ? data : [];
+      renderGroupList(allGroups);
+      document.getElementById('groups-count').textContent = `${allGroups.length} groups`;
+      const badge = document.getElementById('resp-badge');
+      badge.className = res.ok ? 'pill' : 'pill error';
+      badge.textContent = res.ok ? `${res.status} OK` : `${res.status} Error`;
+      setResponse(JSON.stringify(data, null, 2), res.ok);
+    } catch (e) {
+      setResponse(`Network error: ${e.message}`, false);
+    }
+  }
+
+  function renderGroupList(groups) {
+    const container = document.getElementById('group-list');
+    if (!groups.length) {
+      container.innerHTML = '<p class="text-xs text-gray-400 text-center py-6">No groups found</p>';
+      return;
+    }
+    container.innerHTML = groups.map(g => {
+      const initials = (g.subject || '?').slice(0, 2).toUpperCase();
+      const isSelected = !!selectedGroups[g.id];
+      const colors = ['bg-green-200 text-green-800', 'bg-blue-200 text-blue-800', 'bg-purple-200 text-purple-800', 'bg-orange-200 text-orange-800'];
+      const color = colors[Math.abs(g.id.charCodeAt(0)) % colors.length];
+      return `<label class="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-gray-50 cursor-pointer group">
+        <input type="checkbox" class="w-4 h-4 accent-green-500 shrink-0" ${isSelected ? 'checked' : ''} onchange="toggleGroup('${g.id}', \`${(g.subject||'').replace(/`/g,'')}\`, this.checked)"/>
+        <div class="w-8 h-8 rounded-full ${color} flex items-center justify-center font-bold text-xs shrink-0">${initials}</div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium text-gray-800 truncate">${g.subject || 'Unnamed'}</p>
+          <p class="text-xs text-gray-400">${g.size ? g.size + ' members' : ''} ${g.desc ? '· ' + g.desc.slice(0,30) : ''}</p>
+        </div>
+        <button onclick="setManageGroup('${g.id}')" title="Manage" class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-green-600 transition-all p-1">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3" stroke-width="2"/></svg>
+        </button>
+      </label>`;
+    }).join('');
+  }
+
+  function filterGroups() {
+    const q = document.getElementById('group-search').value.toLowerCase();
+    const filtered = allGroups.filter(g => (g.subject || '').toLowerCase().includes(q));
+    renderGroupList(filtered);
+  }
+
+  function toggleGroup(jid, name, checked) {
+    if (checked) selectedGroups[jid] = name;
+    else delete selectedGroups[jid];
+    renderSelectedChips();
+  }
+
+  function selectAllGroups() {
+    allGroups.forEach(g => { selectedGroups[g.id] = g.subject || g.id; });
+    renderGroupList(allGroups);
+    renderSelectedChips();
+  }
+
+  function clearGroupSelection() {
+    selectedGroups = {};
+    renderGroupList(allGroups);
+    renderSelectedChips();
+  }
+
+  function renderSelectedChips() {
+    const keys = Object.keys(selectedGroups);
+    document.getElementById('selected-count').textContent = `${keys.length} selected`;
+    const container = document.getElementById('selected-chips');
+    if (!keys.length) {
+      container.innerHTML = '<p class="text-xs text-gray-400 self-center">No groups selected</p>';
+      return;
+    }
+    container.innerHTML = keys.map(jid => `
+      <span class="inline-flex items-center gap-1 bg-green-50 border border-green-200 text-green-800 text-xs font-medium px-2 py-1 rounded-full">
+        ${selectedGroups[jid].slice(0, 20)}
+        <button onclick="toggleGroup('${jid}','',false); document.querySelectorAll('input[type=checkbox]').forEach(cb => { if(cb.closest('label') && cb.closest('label').querySelector('input')===cb) {} }); renderGroupList(allGroups);" class="text-green-500 hover:text-red-500 ml-0.5">✕</button>
+      </span>`).join('');
+  }
+
+  function updateBroadcastFields() {
+    const type = document.getElementById('bc-type').value;
+    document.getElementById('bc-text-wrap').classList.toggle('hidden', type !== 'text');
+    document.getElementById('bc-media-wrap').classList.toggle('hidden', type !== 'media');
+    document.getElementById('bc-poll-wrap').classList.toggle('hidden', type !== 'poll');
+  }
+
+  function updateBcMime() {
+    const t = document.getElementById('bc-mediatype').value;
+    const m = { image: 'image/jpeg', video: 'video/mp4', document: 'application/pdf' };
+    document.getElementById('bc-mimetype').value = m[t] || '';
+  }
+
+  function addBcPollOpt() {
+    const c = document.getElementById('bc-poll-opts');
+    const inp = document.createElement('input');
+    inp.type = 'text'; inp.placeholder = `Option ${c.children.length + 1}`;
+    inp.className = 'bc-poll-opt w-full border border-gray-300 rounded-lg px-3 py-2 text-sm';
+    c.appendChild(inp);
+  }
+
+  async function broadcastMessage() {
+    const jids = Object.keys(selectedGroups);
+    if (!jids.length) return alert('Select at least one group first.');
+    const type = document.getElementById('bc-type').value;
+    const progress = document.getElementById('bc-progress');
+    progress.classList.remove('hidden');
+
+    let buildBody;
+    if (type === 'text') {
+      const text = document.getElementById('bc-text').value.trim();
+      if (!text) return alert('Message text is required.');
+      buildBody = (number) => ({ endpoint: `/message/sendText/${getCfg().instance}`, body: { number, text } });
+    } else if (type === 'media') {
+      const media = document.getElementById('bc-media-url').value.trim();
+      const mimetype = document.getElementById('bc-mimetype').value.trim();
+      const mediatype = document.getElementById('bc-mediatype').value;
+      const caption = document.getElementById('bc-caption').value.trim();
+      if (!media) return alert('Media URL is required.');
+      buildBody = (number) => ({ endpoint: `/message/sendMedia/${getCfg().instance}`, body: { number, media, mimetype, mediatype, ...(caption && { caption }) } });
+    } else {
+      const name = document.getElementById('bc-poll-q').value.trim();
+      const values = [...document.querySelectorAll('.bc-poll-opt')].map(i => i.value.trim()).filter(Boolean);
+      const selectableCount = parseInt(document.getElementById('bc-poll-sel').value);
+      if (!name || values.length < 2) return alert('Poll question and at least 2 options required.');
+      buildBody = (number) => ({ endpoint: `/message/sendPoll/${getCfg().instance}`, body: { number, name, values, selectableCount } });
+    }
+
+    let ok = 0, fail = 0;
+    for (let i = 0; i < jids.length; i++) {
+      const jid = jids[i];
+      progress.textContent = `Sending ${i + 1}/${jids.length}: ${selectedGroups[jid]}...`;
+      const { endpoint, body } = buildBody(jid);
+      try {
+        const cfg = getCfg();
+        const res = await fetch(`${cfg.base}${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': cfg.apikey },
+          body: JSON.stringify(body)
+        });
+        if (res.ok) ok++; else fail++;
+      } catch { fail++; }
+      await randomDelay();
+    }
+    progress.textContent = `✓ Done! ${ok} sent, ${fail} failed.`;
+    progress.className = fail ? 'text-xs rounded-lg px-3 py-2 bg-yellow-50 text-yellow-700' : 'text-xs rounded-lg px-3 py-2 bg-green-50 text-green-700';
+  }
+
+  async function createGroup() {
+    const subject = document.getElementById('cg-subject').value.trim();
+    const description = document.getElementById('cg-desc').value.trim();
+    const partEl = document.getElementById('cg-participants');
+    if (!subject) return alert('Group name is required.');
+    const { valid, invalid } = parsePhoneLines(partEl.value);
+    if (invalid.length) return showFieldError(partEl,
+      `Invalid numbers: ${invalid.slice(0, 3).join(', ')}${invalid.length > 3 ? ` +${invalid.length - 3} more` : ''} — use international format`);
+    if (!valid.length) return alert('At least one participant is required.');
+    clearFieldError(partEl);
+    const body = { subject, participants: valid };
+    if (description) body.description = description;
+    await apiCall(`/group/create/${getCfg().instance}`, body);
+  }
+
+  function setManageGroup(jid) {
+    document.getElementById('mg-jid').value = jid;
+    switchGroupTab('manage');
+    loadGroupInfo();
+  }
+
+  async function loadGroupInfo() {
+    const jid = document.getElementById('mg-jid').value.trim();
+    if (!jid) return alert('Enter a group JID first.');
+    const cfg = getCfg();
+    const url = `${cfg.base}/group/findGroupInfos/${cfg.instance}?groupJid=${encodeURIComponent(jid)}`;
+    document.getElementById('resp-endpoint').textContent = `GET /group/findGroupInfos`;
+    setResponse('⏳ Loading group info...', null);
+    try {
+      const res = await fetch(url, { headers: { 'apikey': cfg.apikey } });
+      const data = await res.json();
+      setResponse(JSON.stringify(data, null, 2), res.ok);
+      const badge = document.getElementById('resp-badge');
+      badge.className = res.ok ? 'pill' : 'pill error';
+      badge.textContent = res.ok ? `${res.status} OK` : `${res.status} Error`;
+      if (res.ok && data) {
+        const g = data;
+        document.getElementById('mg-preview').classList.remove('hidden');
+        document.getElementById('mg-avatar').textContent = (g.subject || '?').slice(0, 2).toUpperCase();
+        document.getElementById('mg-name').textContent = g.subject || 'Unnamed';
+        document.getElementById('mg-desc-display').textContent = g.desc || '';
+        document.getElementById('mg-meta').textContent = `${g.size || (g.participants || []).length} members · ${g.id}`;
+      }
+    } catch (e) { setResponse(`Error: ${e.message}`, false); }
+  }
+
+  function getGroupJid() {
+    const jid = document.getElementById('mg-jid').value.trim();
+    if (!jid) { alert('Load a group first (enter JID and click Load).'); return null; }
+    return jid;
+  }
+
+  async function updateGroupSubject() {
+    const jid = getGroupJid(); if (!jid) return;
+    const subject = document.getElementById('mg-new-name').value.trim();
+    if (!subject) return alert('Name is required.');
+    await apiCall(`/group/subject/${getCfg().instance}?groupJid=${encodeURIComponent(jid)}`, { subject }, 'PUT');
+  }
+
+  async function updateGroupDescription() {
+    const jid = getGroupJid(); if (!jid) return;
+    const description = document.getElementById('mg-new-desc').value.trim();
+    if (!description) return alert('Description is required.');
+    await apiCall(`/group/description/${getCfg().instance}?groupJid=${encodeURIComponent(jid)}`, { description }, 'PUT');
+  }
+
+  async function updateGroupPicture() {
+    const jid = getGroupJid(); if (!jid) return;
+    const image = document.getElementById('mg-pic-url').value.trim();
+    if (!image) return alert('Image URL is required.');
+    await apiCall(`/group/picture/${getCfg().instance}?groupJid=${encodeURIComponent(jid)}`, { image }, 'PUT');
+  }
+
+  async function fetchGroupParticipants() {
+    const jid = getGroupJid(); if (!jid) return;
+    const cfg = getCfg();
+    const url = `${cfg.base}/group/findGroupInfos/${cfg.instance}?groupJid=${encodeURIComponent(jid)}`;
+    const res = await fetch(url, { headers: { 'apikey': cfg.apikey } });
+    const data = await res.json();
+    const list = document.getElementById('mg-participants-list');
+    if (data && data.participants) {
+      list.classList.remove('hidden');
+      list.innerHTML = data.participants.map(p => `
+        <div class="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-gray-50 text-xs">
+          <span class="font-mono text-gray-700">${p.id}</span>
+          <span class="px-2 py-0.5 rounded-full text-xs font-medium ${p.admin ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}">${p.admin || 'member'}</span>
+        </div>`).join('');
+    }
+    setResponse(JSON.stringify(data, null, 2), res.ok);
+  }
+
+  async function updateParticipants(action) {
+    const jid = getGroupJid(); if (!jid) return;
+    const partEl = document.getElementById('mg-part-numbers');
+    const { valid, invalid } = parsePhoneLines(partEl.value);
+    if (invalid.length) return showFieldError(partEl,
+      `Invalid numbers: ${invalid.slice(0, 3).join(', ')}${invalid.length > 3 ? ` +${invalid.length - 3} more` : ''} — use international format`);
+    if (!valid.length) return alert('Enter at least one number.');
+    clearFieldError(partEl);
+    await apiCall(`/group/updateParticipant/${getCfg().instance}?groupJid=${encodeURIComponent(jid)}`, { action, participants: valid });
+  }
+
+  async function updateGroupSetting(action) {
+    const jid = getGroupJid(); if (!jid) return;
+    await apiCall(`/group/setting/${getCfg().instance}?groupJid=${encodeURIComponent(jid)}`, { action });
+  }
+
+  async function setEphemeral(expiration) {
+    const jid = getGroupJid(); if (!jid) return;
+    await apiCall(`/group/toggleEphemeral/${getCfg().instance}?groupJid=${encodeURIComponent(jid)}`, { expiration });
+  }
+
+  async function getInviteCode() {
+    const jid = getGroupJid(); if (!jid) return;
+    const cfg = getCfg();
+    const url = `${cfg.base}/group/inviteCode/${cfg.instance}?groupJid=${encodeURIComponent(jid)}`;
+    document.getElementById('resp-endpoint').textContent = `GET /group/inviteCode`;
+    setResponse('⏳ Fetching invite link...', null);
+    try {
+      const res = await fetch(url, { headers: { 'apikey': cfg.apikey } });
+      const data = await res.json();
+      setResponse(JSON.stringify(data, null, 2), res.ok);
+      const badge = document.getElementById('resp-badge');
+      badge.className = res.ok ? 'pill' : 'pill error';
+      badge.textContent = res.ok ? `${res.status} OK` : `${res.status} Error`;
+      if (res.ok && (data.inviteUrl || data.inviteCode)) {
+        const url2 = data.inviteUrl || `https://chat.whatsapp.com/${data.inviteCode}`;
+        document.getElementById('mg-invite-display').classList.remove('hidden');
+        document.getElementById('mg-invite-url').textContent = url2;
+        document.getElementById('mg-invite-display').dataset.url = url2;
+      }
+    } catch (e) { setResponse(`Error: ${e.message}`, false); }
+  }
+
+  async function revokeInviteCode() {
+    const jid = getGroupJid(); if (!jid) return;
+    if (!confirm('Revoke the invite link? The old link will stop working.')) return;
+    await apiCall(`/group/revokeInviteCode/${getCfg().instance}?groupJid=${encodeURIComponent(jid)}`, {});
+    document.getElementById('mg-invite-display').classList.add('hidden');
+  }
+
+  function copyInviteLink() {
+    const url = document.getElementById('mg-invite-display').dataset.url;
+    if (url) { navigator.clipboard.writeText(url); document.querySelector('#mg-invite-display button').textContent = 'Copied!'; setTimeout(() => { document.querySelector('#mg-invite-display button').textContent = 'Copy'; }, 1500); }
+  }
+
+  async function leaveGroup() {
+    const jid = getGroupJid(); if (!jid) return;
+    if (!confirm(`Leave this group? This cannot be undone.`)) return;
+    await apiCall(`/group/leaveGroup/${getCfg().instance}?groupJid=${encodeURIComponent(jid)}`, null, 'DELETE');
+  }
+
+  async function apiCall(endpoint, body, method = 'POST') {
+    const cfg = getCfg();
+    const url = `${cfg.base}${endpoint}`;
+    document.getElementById('resp-endpoint').textContent = `${method} ${endpoint}`;
+    document.getElementById('resp-badge').className = 'hidden pill';
+    setResponse('⏳ Sending...', null);
+    try {
+      const opts = { method, headers: { 'Content-Type': 'application/json', 'apikey': cfg.apikey } };
+      if (body !== null && method !== 'GET' && method !== 'DELETE') opts.body = JSON.stringify(body);
+      const res = await fetch(url, opts);
+      const data = await res.json();
+      const ok = res.ok;
+      const badge = document.getElementById('resp-badge');
+      badge.className = ok ? 'pill' : 'pill error';
+      badge.textContent = ok ? `${res.status} OK` : `${res.status} Error`;
+      setResponse(JSON.stringify(data, null, 2), ok);
+    } catch (e) {
+      setResponse(`Network error: ${e.message}`, false);
+      const badge = document.getElementById('resp-badge');
+      badge.className = 'pill error';
+      badge.textContent = 'Error';
+    }
+  }
+
+  function setResponse(text, ok) {
+    const el = document.getElementById('response-area');
+    el.innerHTML = '';
+    const pre = document.createElement('pre');
+    if (ok === true) pre.className = 'text-green-700';
+    else if (ok === false) pre.className = 'text-red-600';
+    else pre.className = 'text-gray-500';
+    pre.textContent = text;
+    el.appendChild(pre);
+  }
+
+  function clearResponse() {
+    document.getElementById('response-area').innerHTML = '<span class="text-gray-400">Response will appear here after sending...</span>';
+    document.getElementById('resp-badge').className = 'hidden pill';
+    document.getElementById('resp-endpoint').textContent = '';
+  }
+
+  function switchTab(name, btn) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.sidebar-btn').forEach(b => { b.classList.remove('active'); b.classList.add('text-gray-600'); });
+    document.getElementById(`tab-${name}`).classList.add('active');
+    btn.classList.add('active');
+    btn.classList.remove('text-gray-600');
+    clearResponse();
+  }
+
+  function toggleDelay(prefix) {
+    const toggle = document.getElementById(`${prefix}-delay-toggle`);
+    const input = document.getElementById(`${prefix}-delay`);
+    input.classList.toggle('hidden', !toggle.checked);
+  }
+
+  // ── SEND TEXT ─────────────────────────────────────────────────────────────
+  // ── TEXT MULTI-RECIPIENT ──────────────────────────────────────────────────
+  const textRecipients = [];
+
+  function initTextChips() {
+    const input = document.getElementById('text-number');
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ',') {
+        e.preventDefault();
+        addTextChip(this.value);
+        this.value = '';
+      }
+      if (e.key === 'Backspace' && this.value === '' && textRecipients.length) {
+        removeTextChip(textRecipients.length - 1);
+      }
+    });
+    input.addEventListener('paste', function(e) {
+      e.preventDefault();
+      const raw = (e.clipboardData || window.clipboardData).getData('text');
+      raw.split(/[\s,;\n]+/).map(s => s.trim()).filter(Boolean).forEach(t => addTextChip(t));
+      this.value = '';
+    });
+    input.addEventListener('blur', function() {
+      if (this.value.trim()) { addTextChip(this.value.trim()); this.value = ''; }
+    });
+  }
+  document.addEventListener('DOMContentLoaded', initTextChips);
+
+  function addTextChip(raw) {
+    if (!raw || !raw.trim()) return;
+    const num = validatePhone(raw);
+    if (!num) {
+      const box = document.getElementById('text-chip-box');
+      showFieldError(box, `"${raw.trim()}" is not a valid phone number`);
+      setTimeout(() => clearFieldError(box), 3000);
+      return;
+    }
+    if (textRecipients.includes(num)) return; // deduplicate
+    clearFieldError(document.getElementById('text-chip-box'));
+    textRecipients.push(num);
+    renderTextChips();
+  }
+
+  function removeTextChip(index) {
+    textRecipients.splice(index, 1);
+    renderTextChips();
+  }
+
+  function renderTextChips() {
+    const box = document.getElementById('text-chip-box');
+    const input = document.getElementById('text-number');
+    box.querySelectorAll('.chip').forEach(c => c.remove());
+    textRecipients.forEach((num, i) => {
+      const chip = document.createElement('span');
+      chip.className = 'chip';
+      chip.innerHTML = `${num}<button type="button" onclick="removeTextChip(${i})" title="Remove">&#x2715;</button>`;
+      box.insertBefore(chip, input);
+    });
+    const label = document.getElementById('text-send-label');
+    if (label) label.textContent = textRecipients.length > 1
+      ? `Send to ${textRecipients.length} recipients`
+      : 'Send Message';
+    // update placeholder visibility
+    input.placeholder = textRecipients.length ? 'Add another…' : 'Type a number and press Enter…';
+  }
+
+  async function sendText() {
+    // commit anything currently typed but not yet chipped
+    const rawInput = document.getElementById('text-number').value.trim();
+    if (rawInput) { addTextChip(rawInput); document.getElementById('text-number').value = ''; }
+
+    const text = document.getElementById('text-message').value.trim();
+    const quotedId = document.getElementById('text-quotedid').value.trim();
+    const delayOn = document.getElementById('text-delay-toggle').checked;
+    const delayMs = parseInt(document.getElementById('text-delay').value) || 0;
+
+    if (!textRecipients.length) return alert('Add at least one recipient number.');
+    if (!text) return alert('Message text is required.');
+
+    // ── Single recipient: use normal apiCall (shows full JSON response) ──────
+    if (textRecipients.length === 1) {
+      const body = { number: textRecipients[0], text };
+      if (quotedId) body.quoted = { key: { id: quotedId } };
+      if (delayOn && delayMs) body.delay = delayMs;
+      await apiCall(`/message/sendText/${getCfg().instance}`, body);
+      return;
+    }
+
+    // ── Multiple recipients: broadcast loop ───────────────────────────────────
+    const progress = document.getElementById('text-progress');
+    const sendBtn = document.getElementById('text-send-btn');
+    progress.className = 'text-xs rounded-lg px-3 py-2 mt-2 bg-gray-50 text-gray-600';
+    sendBtn.disabled = true;
+
+    let ok = 0, fail = 0;
+    const numbers = [...textRecipients];
+    for (let i = 0; i < numbers.length; i++) {
+      const number = numbers[i];
+      progress.textContent = `Sending ${i + 1}/${numbers.length}: ${number}…`;
+      const body = { number, text };
+      if (quotedId) body.quoted = { key: { id: quotedId } };
+      if (delayOn && delayMs) body.delay = delayMs;
+      try {
+        const cfg = getCfg();
+        const res = await fetch(`${cfg.base}/message/sendText/${cfg.instance}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': cfg.apikey },
+          body: JSON.stringify(body)
+        });
+        if (res.ok) ok++; else fail++;
+      } catch { fail++; }
+      if (i < numbers.length - 1) await randomDelay();
+    }
+
+    progress.className = `text-xs rounded-lg px-3 py-2 mt-2 ${fail ? 'bg-yellow-50 text-yellow-700' : 'bg-green-50 text-green-700'}`;
+    progress.textContent = `✓ Done! ${ok} sent${fail ? `, ${fail} failed` : ''}.`;
+    setResponse(`Broadcast complete: ${ok} sent, ${fail} failed.`, fail === 0);
+    document.getElementById('resp-endpoint').textContent = `POST /message/sendText/${getCfg().instance} (×${numbers.length})`;
+    const badge = document.getElementById('resp-badge');
+    badge.className = fail ? 'pill error' : 'pill';
+    badge.textContent = fail ? `${fail} Failed` : `${ok} Sent`;
+    sendBtn.disabled = false;
+  }
+
+  // ── SEND MEDIA ────────────────────────────────────────────────────────────
+  function updateMimetype() {
+    const type = document.getElementById('media-type').value;
+    const mimes = { image: 'image/jpeg', video: 'video/mp4', document: 'application/pdf', audio: 'audio/mpeg' };
+    document.getElementById('media-mimetype').value = mimes[type] || '';
+  }
+
+  async function sendMedia() {
+    const rawNum = document.getElementById('media-number').value.trim();
+    const number = validatePhone(rawNum);
+    if (!number) return showFieldError(document.getElementById('media-number'), rawNum ? `"${rawNum}" is not a valid number` : 'Number is required');
+    const mediatype = document.getElementById('media-type').value;
+    const media = document.getElementById('media-url').value.trim();
+    const mimetype = document.getElementById('media-mimetype').value.trim();
+    const fileName = document.getElementById('media-filename').value.trim();
+    const caption = document.getElementById('media-caption').value.trim();
+    if (!media || !mimetype) return alert('URL and MIME type are required.');
+    const body = { number, mediatype, media, mimetype };
+    if (fileName) body.fileName = fileName;
+    if (caption) body.caption = caption;
+    await apiCall(`/message/sendMedia/${getCfg().instance}`, body);
+  }
+
+  // ── SEND VOICE NOTE ───────────────────────────────────────────────────────
+  async function sendAudio() {
+    const rawNum = document.getElementById('audio-number').value.trim();
+    const number = validatePhone(rawNum);
+    if (!number) return showFieldError(document.getElementById('audio-number'), rawNum ? `"${rawNum}" is not a valid number` : 'Number is required');
+    const audio = document.getElementById('audio-url').value.trim();
+    const encoding = document.getElementById('audio-encoding').checked;
+    if (!audio) return alert('Audio URL is required.');
+    await apiCall(`/message/sendWhatsAppAudio/${getCfg().instance}`, { number, audio, encoding });
+  }
+
+  // ── SEND LOCATION ─────────────────────────────────────────────────────────
+  async function sendLocation() {
+    const rawNum = document.getElementById('loc-number').value.trim();
+    const number = validatePhone(rawNum);
+    if (!number) return showFieldError(document.getElementById('loc-number'), rawNum ? `"${rawNum}" is not a valid number` : 'Number is required');
+    const latitude = parseFloat(document.getElementById('loc-lat').value);
+    const longitude = parseFloat(document.getElementById('loc-lng').value);
+    const name = document.getElementById('loc-name').value.trim();
+    const address = document.getElementById('loc-address').value.trim();
+    if (isNaN(latitude) || isNaN(longitude)) return alert('Latitude and longitude are required.');
+    const body = { number, latitude, longitude };
+    if (name) body.name = name;
+    if (address) body.address = address;
+    await apiCall(`/message/sendLocation/${getCfg().instance}`, body);
+  }
+
+  // ── SEND CONTACT ──────────────────────────────────────────────────────────
+  async function sendContact() {
+    const rawNum = document.getElementById('contact-number').value.trim();
+    const number = validatePhone(rawNum);
+    if (!number) return showFieldError(document.getElementById('contact-number'), rawNum ? `"${rawNum}" is not a valid number` : 'Number is required');
+    const fullName = document.getElementById('contact-name').value.trim();
+    const rawPhone = document.getElementById('contact-phone').value.trim();
+    const phoneNumber = validatePhone(rawPhone) || rawPhone; // best-effort for the vCard phone
+    const wuid = validatePhone(document.getElementById('contact-wuid').value.trim()) || phoneNumber;
+    if (!fullName || !rawPhone) return alert('Contact name and phone are required.');
+    await apiCall(`/message/sendContact/${getCfg().instance}`, {
+      number,
+      contact: [{ fullName, wuid, phoneNumber }]
+    });
+  }
+
+  // ── SEND REACTION ─────────────────────────────────────────────────────────
+  function selectEmoji(btn, emoji) {
+    document.querySelectorAll('.emoji-btn').forEach(b => b.classList.remove('bg-green-100', 'ring-2', 'ring-green-400'));
+    btn.classList.add('bg-green-100', 'ring-2', 'ring-green-400');
+    document.getElementById('react-emoji').value = emoji;
+  }
+
+  async function sendReaction() {
+    const remoteJid = document.getElementById('react-jid').value.trim();
+    const id = document.getElementById('react-msgid').value.trim();
+    const fromMe = document.getElementById('react-fromme').checked;
+    const reaction = document.getElementById('react-emoji').value.trim();
+    if (!remoteJid || !id || !reaction) return alert('JID, message ID and emoji are required.');
+    await apiCall(`/message/sendReaction/${getCfg().instance}`, {
+      key: { remoteJid, fromMe, id },
+      reaction
+    });
+  }
+
+  // ── SEND POLL ─────────────────────────────────────────────────────────────
+  function addPollOption() {
+    const container = document.getElementById('poll-options');
+    if (container.children.length >= 12) return alert('Maximum 12 options.');
+    const div = document.createElement('div');
+    div.className = 'flex gap-2';
+    const n = container.children.length + 1;
+    div.innerHTML = `<input type="text" placeholder="Option ${n}" class="poll-opt flex-1 border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+      <button onclick="this.parentElement.remove()" class="text-gray-400 hover:text-red-500 transition-colors px-2 text-lg">✕</button>`;
+    container.appendChild(div);
+  }
+
+  async function sendPoll() {
+    const rawNum = document.getElementById('poll-number').value.trim();
+    const number = validatePhone(rawNum);
+    if (!number) return showFieldError(document.getElementById('poll-number'), rawNum ? `"${rawNum}" is not a valid number` : 'Number is required');
+    const name = document.getElementById('poll-question').value.trim();
+    const selectableCount = parseInt(document.getElementById('poll-selectable').value);
+    const values = [...document.querySelectorAll('.poll-opt')].map(i => i.value.trim()).filter(Boolean);
+    if (!name) return alert('Poll question is required.');
+    if (values.length < 2) return alert('At least 2 options required.');
+    await apiCall(`/message/sendPoll/${getCfg().instance}`, { number, name, selectableCount, values });
+  }
+
+  // ── SEND BUTTONS ──────────────────────────────────────────────────────────
+  function addButton() {
+    const container = document.getElementById('buttons-list');
+    if (container.children.length >= 3) return alert('Maximum 3 buttons.');
+    const div = document.createElement('div');
+    div.className = 'flex gap-2 items-center btn-row';
+    div.innerHTML = `<input type="text" placeholder="Button label" class="btn-label flex-1 border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+      <input type="text" placeholder="Button ID" class="btn-id w-32 border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+      <button onclick="this.parentElement.remove()" class="text-gray-400 hover:text-red-500 transition-colors px-2 text-lg">✕</button>`;
+    container.appendChild(div);
+  }
+
+  async function sendButtons() {
+    const rawNum = document.getElementById('btn-number').value.trim();
+    const number = validatePhone(rawNum);
+    if (!number) return showFieldError(document.getElementById('btn-number'), rawNum ? `"${rawNum}" is not a valid number` : 'Number is required');
+    const title = document.getElementById('btn-title').value.trim();
+    const description = document.getElementById('btn-description').value.trim();
+    const footer = document.getElementById('btn-footer').value.trim();
+    const rows = document.querySelectorAll('.btn-row');
+    const buttons = [...rows].map((row, i) => ({
+      type: 'reply',
+      displayText: row.querySelector('.btn-label').value.trim(),
+      id: row.querySelector('.btn-id').value.trim() || `btn${i + 1}`
+    })).filter(b => b.displayText);
+    if (!title) return alert('Title is required.');
+    if (!buttons.length) return alert('At least one button is required.');
+    const body = { number, title, buttons };
+    if (description) body.description = description;
+    if (footer) body.footer = footer;
+    await apiCall(`/message/sendButtons/${getCfg().instance}`, body);
+  }
+
+  // ── SEND LIST ─────────────────────────────────────────────────────────────
+  function addListRow(btn) {
+    const container = btn.previousElementSibling;
+    const div = document.createElement('div');
+    div.className = 'flex gap-2 row-entry';
+    div.innerHTML = `<input type="text" placeholder="Option title" class="row-title flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"/>
+      <input type="text" placeholder="Description" class="row-desc flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"/>
+      <input type="text" placeholder="ID" class="row-id w-20 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"/>
+      <button onclick="this.parentElement.remove()" class="text-gray-400 hover:text-red-500 text-sm px-1">✕</button>`;
+    container.appendChild(div);
+  }
+
+  function addListSection() {
+    const container = document.getElementById('list-sections');
+    const div = document.createElement('div');
+    div.className = 'section-block border border-gray-200 rounded-lg p-3 space-y-2 bg-gray-50';
+    div.innerHTML = `<div class="flex justify-between items-center gap-2">
+        <input type="text" placeholder="Section title" class="section-title flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white font-medium"/>
+        <button onclick="this.closest('.section-block').remove()" class="text-gray-400 hover:text-red-500 px-2 text-lg">✕</button>
+      </div>
+      <div class="rows-container space-y-2">
+        <div class="flex gap-2 row-entry">
+          <input type="text" placeholder="Option title" class="row-title flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"/>
+          <input type="text" placeholder="Description" class="row-desc flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"/>
+          <input type="text" placeholder="ID" class="row-id w-20 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"/>
+        </div>
+      </div>
+      <button onclick="addListRow(this)" class="text-xs text-green-600 font-medium flex items-center gap-1 hover:text-green-700">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        Add row
+      </button>`;
+    container.appendChild(div);
+  }
+
+  async function sendList() {
+    const rawNum = document.getElementById('list-number').value.trim();
+    const number = validatePhone(rawNum);
+    if (!number) return showFieldError(document.getElementById('list-number'), rawNum ? `"${rawNum}" is not a valid number` : 'Number is required');
+    const title = document.getElementById('list-title').value.trim();
+    const description = document.getElementById('list-description').value.trim();
+    const buttonText = document.getElementById('list-btntext').value.trim();
+    const footerText = document.getElementById('list-footer').value.trim();
+    if (!title || !buttonText) return alert('Title and button text are required.');
+    const sections = [...document.querySelectorAll('.section-block')].map((sec, si) => ({
+      title: sec.querySelector('.section-title').value.trim() || `Section ${si + 1}`,
+      rows: [...sec.querySelectorAll('.row-entry')].map((row, ri) => ({
+        title: row.querySelector('.row-title').value.trim() || `Option ${ri + 1}`,
+        description: row.querySelector('.row-desc').value.trim(),
+        rowId: row.querySelector('.row-id').value.trim() || `row${si}_${ri}`
+      })).filter(r => r.title)
+    })).filter(s => s.rows.length);
+    if (!sections.length) return alert('At least one section with one row required.');
+    const body = { number, title, buttonText, sections };
+    if (description) body.description = description;
+    if (footerText) body.footerText = footerText;
+    await apiCall(`/message/sendList/${getCfg().instance}`, body);
+  }
+
+  // ── SEND STATUS ───────────────────────────────────────────────────────────
+  function updateStatusFields() {
+    const type = document.getElementById('status-type').value;
+    const isText = type === 'text';
+    document.getElementById('status-content-wrap').classList.toggle('hidden', !isText);
+    document.getElementById('status-media-wrap').classList.toggle('hidden', isText);
+    document.getElementById('status-caption-wrap').classList.toggle('hidden', isText || type === 'audio');
+    document.getElementById('status-bg-wrap').classList.toggle('hidden', !isText);
+    document.getElementById('status-font-wrap').classList.toggle('hidden', !isText);
+  }
+
+  function toggleStatusContacts() {
+    const checked = document.getElementById('status-allcontacts').checked;
+    document.getElementById('status-jids-wrap').classList.toggle('hidden', checked);
+  }
+
+  function syncColor(input) {
+    document.getElementById('status-bgcolor').value = input.value;
+  }
+
+  document.getElementById('status-bgcolor').addEventListener('input', function () {
+    document.getElementById('status-bgcolor-text').value = this.value;
+  });
+
+  async function sendStatus() {
+    const type = document.getElementById('status-type').value;
+    const allContacts = document.getElementById('status-allcontacts').checked;
+    const jidsRaw = document.getElementById('status-jids').value.trim();
+    const statusJidList = allContacts ? [] : jidsRaw.split('\n').map(j => j.trim()).filter(Boolean);
+    const body = { type, allContacts };
+    if (!allContacts && statusJidList.length) body.statusJidList = statusJidList;
+    if (type === 'text') {
+      const content = document.getElementById('status-content').value.trim();
+      if (!content) return alert('Content is required.');
+      body.content = content;
+      body.backgroundColor = document.getElementById('status-bgcolor').value;
+      body.font = parseInt(document.getElementById('status-font').value);
+    } else {
+      const content = document.getElementById('status-media-url').value.trim();
+      if (!content) return alert('Media URL is required.');
+      body.content = content;
+      const caption = document.getElementById('status-caption').value.trim();
+      if (caption) body.caption = caption;
+    }
+    await apiCall(`/message/sendStatus/${getCfg().instance}`, body);
+  }
+
+  // ── PROFILE SETTINGS ──────────────────────────────────────────────────────
+  async function fetchMyProfile() {
+    const data = await apiCall(`/profile/fetchProfile/${getCfg().instance}`, null, 'GET');
+    if (data) {
+      const preview = document.getElementById('profile-preview');
+      preview.classList.remove('hidden');
+      document.getElementById('profile-pic').src = data.profilePictureUrl || data.profilePicUrl || '';
+      document.getElementById('profile-name-display').textContent = data.pushName || data.name || '—';
+      document.getElementById('profile-status-display').textContent = data.status || data.about || '';
+      document.getElementById('profile-number-display').textContent = data.id || data.jid || '';
+    }
+  }
+
+  async function updateProfileName() {
+    const name = document.getElementById('profile-new-name').value.trim();
+    if (!name) return alert('Name is required.');
+    await apiCall(`/profile/name/${getCfg().instance}`, { name }, 'PUT');
+  }
+
+  async function updateProfileStatus() {
+    const status = document.getElementById('profile-new-status').value.trim();
+    if (!status) return alert('Status text is required.');
+    await apiCall(`/profile/status/${getCfg().instance}`, { status }, 'PUT');
+  }
+
+  async function updateProfilePicture() {
+    const picture = document.getElementById('profile-pic-url').value.trim();
+    if (!picture) return alert('Image URL is required.');
+    await apiCall(`/profile/picture/${getCfg().instance}`, { picture }, 'PUT');
+  }
+
+  async function removeProfilePicture() {
+    if (!confirm('Remove your profile picture?')) return;
+    await apiCall(`/profile/picture/${getCfg().instance}`, null, 'DELETE');
+  }
+
+  async function fetchPrivacy() {
+    const data = await apiCall(`/profile/privacy/${getCfg().instance}`, null, 'GET');
+    if (data && data.privacy) {
+      const p = data.privacy;
+      const setVal = (id, val) => { if (val) { const el = document.getElementById(id); if (el) el.value = val; } };
+      setVal('privacy-last', p.readreceipts || p.last);
+      setVal('privacy-online', p.online);
+      setVal('privacy-profile', p.profile);
+      setVal('privacy-status', p.status);
+      setVal('privacy-readreceipts', p.readreceipts);
+      setVal('privacy-groupadd', p.groupadd);
+    }
+  }
+
+  async function updatePrivacy() {
+    const body = {
+      readreceipts: document.getElementById('privacy-readreceipts').value,
+      profile:      document.getElementById('privacy-profile').value,
+      status:       document.getElementById('privacy-status').value,
+      online:       document.getElementById('privacy-online').value,
+      last:         document.getElementById('privacy-last').value,
+      groupadd:     document.getElementById('privacy-groupadd').value,
+    };
+    await apiCall(`/profile/privacy/${getCfg().instance}`, body, 'PUT');
+  }
+</script>
+</body>
+</html>
