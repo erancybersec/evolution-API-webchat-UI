@@ -57,10 +57,34 @@ A browser-based WhatsApp management interface built on top of [Evolution API v2]
 
 ---
 
+## Server Deployment — `config.json`
+
+When hosting on a web server, you can pre-configure all settings centrally using a `config.json` file placed next to `index.html`. Users won't need to touch Settings — everything is loaded automatically.
+
+Copy `config.example.json` → `config.json` and fill in your values:
+
+```json
+{
+  "appName":  "My Business",
+  "base":     "https://your-evolution-api-server.com",
+  "instance": "MyInstance",
+  "apikey":   "your-api-key-here",
+  "country":  "IL",
+  "delayMin": 1,
+  "delayMax": 5
+}
+```
+
+Any field can be omitted — omitted fields fall back to the user's local browser settings.
+
+> **Note:** `config.json` is listed in `.gitignore` so your credentials are never committed to the repo.
+
+---
+
 ## Security
 
-- All credentials (API key, instance name, server URL) are stored exclusively in your **browser's localStorage**
-- Nothing is hardcoded — the repo contains zero credentials
+- Credentials are stored in your **browser's localStorage** (local use) or in `config.json` on your server (hosted use)
+- Nothing is hardcoded in the source — the repo contains zero credentials
 - Credentials never leave your browser except in direct API calls to your own Evolution API server
 
 ---

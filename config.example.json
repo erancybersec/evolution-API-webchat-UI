@@ -1,0 +1,9 @@
+{
+  "appName":  "My Business",
+  "base":     "https://your-evolution-api-server.com",
+  "instance": "MyInstance",
+  "apikey":   "your-api-key-here",
+  "country":  "IL",
+  "delayMin": 1,
+  "delayMax": 5
+}

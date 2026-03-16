@@ -79,6 +79,9 @@
       </button>
     </div>
     <div class="px-6 py-5 space-y-4">
+      <div id="cfg-server-notice" class="hidden bg-blue-50 border border-blue-200 text-blue-700 text-xs rounded-lg px-3 py-2">
+        ⚙ Server configuration loaded from <code>config.json</code> — those values take priority over local settings.
+      </div>
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">Business / App Name</label>
         <input id="cfg-app-name" type="text" placeholder="WhatsApp Manager" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
@@ -1091,7 +1094,9 @@
 </div>
 
 <script>
-  // ── CONFIG (localStorage-backed) ──────────────────────────────────────────
+  // ── CONFIG (server config.json → localStorage → defaults) ────────────────
+  let serverCfg = {};  // populated from config.json if present
+
   const DEFAULTS = {
     base: '',
     instance: '',
@@ -1103,14 +1108,15 @@
   };
 
   function getCfg() {
+    const s = serverCfg;
     return {
-      base:     localStorage.getItem('wa_base')      || '',
-      instance: localStorage.getItem('wa_instance')  || '',
-      apikey:   localStorage.getItem('wa_apikey')    || '',
-      country:  localStorage.getItem('wa_country')   || 'IL',
-      delayMin: parseFloat(localStorage.getItem('wa_delay_min')) || 1,
-      delayMax: parseFloat(localStorage.getItem('wa_delay_max')) || 3,
-      appName:  localStorage.getItem('wa_app_name')  || 'WhatsApp Manager',
+      appName:  s.appName  || localStorage.getItem('wa_app_name')  || DEFAULTS.appName,
+      base:     s.base     || localStorage.getItem('wa_base')      || '',
+      instance: s.instance || localStorage.getItem('wa_instance')  || '',
+      apikey:   s.apikey   || localStorage.getItem('wa_apikey')    || '',
+      country:  s.country  || localStorage.getItem('wa_country')   || DEFAULTS.country,
+      delayMin: s.delayMin != null ? s.delayMin : (parseFloat(localStorage.getItem('wa_delay_min')) || DEFAULTS.delayMin),
+      delayMax: s.delayMax != null ? s.delayMax : (parseFloat(localStorage.getItem('wa_delay_max')) || DEFAULTS.delayMax),
     };
   }
 
@@ -1131,6 +1137,12 @@
 
   function openConfig() {
     const cfg = getCfg();
+    const serverNotice = document.getElementById('cfg-server-notice');
+    if (Object.keys(serverCfg).length > 0) {
+      serverNotice.classList.remove('hidden');
+    } else {
+      serverNotice.classList.add('hidden');
+    }
     document.getElementById('cfg-app-name').value  = cfg.appName !== 'WhatsApp Manager' ? cfg.appName : '';
     document.getElementById('cfg-base').value      = cfg.base;
     document.getElementById('cfg-instance').value  = cfg.instance;
@@ -1231,11 +1243,16 @@
     if (e.target === this) closeConfig();
   });
 
-  // Init config on load — auto-open settings if not yet configured
-  applyConfig();
-  if (!localStorage.getItem('wa_apikey') || !localStorage.getItem('wa_base')) {
-    openConfig();
-  }
+  // Init — load config.json (if on a server), then apply and open settings if needed
+  (async () => {
+    try {
+      const res = await fetch('config.json');
+      if (res.ok) serverCfg = await res.json();
+    } catch (e) { /* no config.json — local file usage, that's fine */ }
+    applyConfig();
+    const cfg = getCfg();
+    if (!cfg.apikey || !cfg.base) openConfig();
+  })();
 
   // ── PHONE VALIDATION (libphonenumber-js) ──────────────────────────────────
   function validatePhone(raw) {
