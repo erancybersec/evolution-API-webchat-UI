@@ -36,6 +36,8 @@
     .btn-send:disabled { background:#9ca3af !important; cursor:not-allowed; }
     .field-error { border-color: #ef4444 !important; box-shadow: 0 0 0 3px rgba(239,68,68,.12) !important; }
     .field-error-msg { color: #dc2626; font-size: 11px; margin-top: 4px; display: block; }
+    .compose-type-btn { flex:1; text-align:center; padding:6px 4px; border-radius:7px; font-size:12px; font-weight:500; color:#6b7280; transition:all .15s; white-space:nowrap; cursor:pointer; }
+    .compose-type-btn.active { background:white; color:#111827; box-shadow:0 1px 3px rgba(0,0,0,.12); }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -158,7 +160,7 @@
     <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 mb-2">Messages</p>
     <button class="sidebar-btn active text-sm font-medium px-3 py-2.5 rounded-lg text-left flex items-center gap-2.5" onclick="switchTab('text', this)">
       <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-      Text
+      Compose
     </button>
     <button class="sidebar-btn text-sm font-medium px-3 py-2.5 rounded-lg text-left text-gray-600 flex items-center gap-2.5" onclick="switchTab('media', this)">
       <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
@@ -218,11 +220,13 @@
   <main class="flex-1 flex flex-col overflow-hidden">
     <div class="flex-1 overflow-y-auto p-6">
 
-      <!-- TEXT -->
+      <!-- COMPOSE -->
       <div id="tab-text" class="tab-panel active max-w-2xl">
-        <h2 class="text-lg font-semibold text-gray-800 mb-1">Send Text Message</h2>
-        <p class="text-sm text-gray-500 mb-5">Send a plain or formatted text message to a contact or group.</p>
+        <h2 class="text-lg font-semibold text-gray-800 mb-1">Compose &amp; Send</h2>
+        <p class="text-sm text-gray-500 mb-5">Send text, media, voice, poll, or buttons to one or multiple recipients.</p>
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+
+          <!-- Recipients -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1.5">Recipient(s) <span class="text-red-400">*</span></label>
             <div id="text-chip-box" class="chip-box" onclick="document.getElementById('text-number').focus()">
@@ -234,24 +238,149 @@
               Press <kbd class="bg-gray-100 border border-gray-200 px-1 rounded text-xs">Enter</kbd> or comma after each number &nbsp;·&nbsp;
               Paste multiple numbers (comma or newline separated)
             </p>
-            <div id="text-progress" class="hidden text-xs rounded-lg px-3 py-2 mt-2"></div>
           </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">Message <span class="text-red-400">*</span></label>
-            <textarea id="text-message" rows="5" placeholder="Type your message here..." class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm resize-none"></textarea>
+
+          <!-- Message type selector -->
+          <div class="flex gap-1 bg-gray-100 rounded-xl p-1">
+            <button id="ctype-text"    onclick="switchComposeType('text')"    class="compose-type-btn active">💬 Text</button>
+            <button id="ctype-media"   onclick="switchComposeType('media')"   class="compose-type-btn">🖼 Media</button>
+            <button id="ctype-voice"   onclick="switchComposeType('voice')"   class="compose-type-btn">🎤 Voice</button>
+            <button id="ctype-poll"    onclick="switchComposeType('poll')"    class="compose-type-btn">📊 Poll</button>
+            <button id="ctype-buttons" onclick="switchComposeType('buttons')" class="compose-type-btn">⬜ Buttons</button>
           </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">Reply to Message ID <span class="text-gray-400 font-normal">(optional)</span></label>
-            <input id="text-quotedid" type="text" placeholder="Message ID to quote" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+
+          <!-- TEXT panel -->
+          <div id="cpanel-text" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Message <span class="text-red-400">*</span></label>
+              <textarea id="compose-text-msg" rows="5" placeholder="Type your message here..." class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm resize-none"></textarea>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Reply to Message ID <span class="text-gray-400 font-normal">(optional)</span></label>
+              <input id="compose-text-quotedid" type="text" placeholder="Message ID to quote" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+            </div>
           </div>
-          <div class="flex items-center gap-3 pt-1">
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input id="text-delay-toggle" type="checkbox" class="w-4 h-4 accent-green-500" onchange="toggleDelay('text')"/>
-              <span class="text-sm text-gray-600">Add delay</span>
-            </label>
-            <input id="text-delay" type="number" placeholder="ms" class="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm hidden"/>
+
+          <!-- MEDIA panel -->
+          <div id="cpanel-media" class="hidden space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Media Type <span class="text-red-400">*</span></label>
+              <select id="compose-media-type" onchange="updateComposeMimetype()" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm bg-white">
+                <option value="image">Image</option>
+                <option value="video">Video</option>
+                <option value="document">Document</option>
+                <option value="audio">Audio</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Media URL <span class="text-red-400">*</span></label>
+              <input id="compose-media-url" type="text" placeholder="https://example.com/image.jpg" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm" oninput="composeMediaBase64=null;document.getElementById('compose-media-badge').classList.add('hidden')"/>
+              <div class="flex items-center gap-2 mt-2">
+                <span class="text-xs text-gray-400">or</span>
+                <label class="cursor-pointer inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                  Choose file
+                  <input type="file" id="compose-media-file" class="hidden" onchange="onComposeMediaFileSelected(this)"/>
+                </label>
+                <span id="compose-media-badge" class="hidden text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full"></span>
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">MIME Type <span class="text-red-400">*</span></label>
+              <input id="compose-media-mimetype" type="text" placeholder="image/jpeg" value="image/jpeg" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">File Name</label>
+              <input id="compose-media-filename" type="text" placeholder="file.jpg" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Caption</label>
+              <textarea id="compose-media-caption" rows="2" placeholder="Optional caption..." class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm resize-none"></textarea>
+            </div>
           </div>
-          <button id="text-send-btn" onclick="sendText()" class="btn-send w-full text-white font-semibold py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
+
+          <!-- VOICE panel -->
+          <div id="cpanel-voice" class="hidden space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Audio URL <span class="text-red-400">*</span></label>
+              <input id="compose-voice-url" type="text" placeholder="https://example.com/audio.mp3" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm" oninput="composeVoiceBase64=null;document.getElementById('compose-voice-badge').classList.add('hidden')"/>
+              <div class="flex items-center gap-2 mt-2">
+                <span class="text-xs text-gray-400">or</span>
+                <label class="cursor-pointer inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                  Choose file
+                  <input type="file" id="compose-voice-file" class="hidden" accept="audio/*" onchange="onComposeVoiceFileSelected(this)"/>
+                </label>
+                <span id="compose-voice-badge" class="hidden text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full"></span>
+              </div>
+              <p class="text-xs text-gray-400 mt-1">Supported: mp3, ogg, m4a, wav</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <input id="compose-voice-encoding" type="checkbox" checked class="w-4 h-4 accent-green-500"/>
+              <label for="compose-voice-encoding" class="text-sm text-gray-600">Auto-encode to WhatsApp format</label>
+            </div>
+          </div>
+
+          <!-- POLL panel -->
+          <div id="cpanel-poll" class="hidden space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Poll Question <span class="text-red-400">*</span></label>
+              <input id="compose-poll-question" type="text" placeholder="What is your question?" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Options <span class="text-red-400">*</span> <span class="text-gray-400 font-normal">(min 2, max 12)</span></label>
+              <div id="compose-poll-options" class="space-y-2">
+                <div class="flex gap-2"><input type="text" placeholder="Option 1" class="compose-poll-opt flex-1 border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/></div>
+                <div class="flex gap-2"><input type="text" placeholder="Option 2" class="compose-poll-opt flex-1 border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/></div>
+              </div>
+              <button onclick="addComposePollOption()" class="mt-2 text-sm text-green-600 font-medium flex items-center gap-1 hover:text-green-700">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Add Option
+              </button>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Max Selections Allowed</label>
+              <select id="compose-poll-selectable" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm bg-white">
+                <option value="1">1 (single choice)</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="0">Unlimited</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- BUTTONS panel -->
+          <div id="cpanel-buttons" class="hidden space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Title <span class="text-red-400">*</span></label>
+              <input id="compose-btn-title" type="text" placeholder="Message title" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
+              <textarea id="compose-btn-description" rows="2" placeholder="Message body text..." class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm resize-none"></textarea>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Footer</label>
+              <input id="compose-btn-footer" type="text" placeholder="Footer text" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Buttons <span class="text-red-400">*</span> <span class="text-gray-400 font-normal">(max 3)</span></label>
+              <div id="compose-btn-list" class="space-y-2">
+                <div class="flex gap-2 items-center compose-btn-row">
+                  <input type="text" placeholder="Button label" class="compose-btn-label flex-1 border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+                  <input type="text" placeholder="Button ID" class="compose-btn-id w-32 border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+                </div>
+              </div>
+              <button onclick="addComposeButton()" class="mt-2 text-sm text-green-600 font-medium flex items-center gap-1 hover:text-green-700">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Add Button
+              </button>
+            </div>
+          </div>
+
+          <!-- Progress + Send -->
+          <div id="text-progress" class="hidden text-xs rounded-lg px-3 py-2"></div>
+          <button id="text-send-btn" onclick="sendCompose()" class="btn-send w-full text-white font-semibold py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
             <span id="text-send-label">Send Message</span>
           </button>
@@ -1700,6 +1829,166 @@
     const toggle = document.getElementById(`${prefix}-delay-toggle`);
     const input = document.getElementById(`${prefix}-delay`);
     input.classList.toggle('hidden', !toggle.checked);
+  }
+
+  // ── COMPOSE TAB ───────────────────────────────────────────────────────────
+  let currentComposeType = 'text';
+  let composeMediaBase64 = null;
+  let composeVoiceBase64 = null;
+
+  function switchComposeType(type) {
+    currentComposeType = type;
+    ['text','media','voice','poll','buttons'].forEach(t => {
+      document.getElementById('cpanel-' + t).classList.toggle('hidden', t !== type);
+      document.getElementById('ctype-' + t).classList.toggle('active', t === type);
+    });
+  }
+
+  function updateComposeMimetype() {
+    const type = document.getElementById('compose-media-type').value;
+    const mimes = { image: 'image/jpeg', video: 'video/mp4', document: 'application/pdf', audio: 'audio/mpeg' };
+    document.getElementById('compose-media-mimetype').value = mimes[type] || '';
+  }
+
+  async function onComposeMediaFileSelected(input) {
+    const file = input.files[0];
+    if (!file) return;
+    composeMediaBase64 = await readFileAsBase64(file);
+    document.getElementById('compose-media-url').value = '';
+    document.getElementById('compose-media-url').placeholder = file.name;
+    if (file.type) document.getElementById('compose-media-mimetype').value = file.type;
+    if (!document.getElementById('compose-media-filename').value) document.getElementById('compose-media-filename').value = file.name;
+    const badge = document.getElementById('compose-media-badge');
+    badge.textContent = file.name;
+    badge.classList.remove('hidden');
+  }
+
+  async function onComposeVoiceFileSelected(input) {
+    const file = input.files[0];
+    if (!file) return;
+    composeVoiceBase64 = await readFileAsBase64(file);
+    document.getElementById('compose-voice-url').value = '';
+    document.getElementById('compose-voice-url').placeholder = file.name;
+    const badge = document.getElementById('compose-voice-badge');
+    badge.textContent = file.name;
+    badge.classList.remove('hidden');
+  }
+
+  function addComposePollOption() {
+    const container = document.getElementById('compose-poll-options');
+    if (container.children.length >= 12) return;
+    const count = container.children.length + 1;
+    const div = document.createElement('div');
+    div.className = 'flex gap-2';
+    div.innerHTML = `<input type="text" placeholder="Option ${count}" class="compose-poll-opt flex-1 border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>`;
+    container.appendChild(div);
+  }
+
+  function addComposeButton() {
+    const list = document.getElementById('compose-btn-list');
+    if (list.children.length >= 3) return;
+    const div = document.createElement('div');
+    div.className = 'flex gap-2 items-center compose-btn-row';
+    div.innerHTML = `<input type="text" placeholder="Button label" class="compose-btn-label flex-1 border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/><input type="text" placeholder="Button ID" class="compose-btn-id w-32 border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>`;
+    list.appendChild(div);
+  }
+
+  async function sendCompose() {
+    const rawInput = document.getElementById('text-number').value.trim();
+    if (rawInput) { addTextChip(rawInput); document.getElementById('text-number').value = ''; }
+    if (!textRecipients.length) return alert('Add at least one recipient number.');
+
+    const type = currentComposeType;
+    let buildBody;
+
+    if (type === 'text') {
+      const text = document.getElementById('compose-text-msg').value.trim();
+      const quotedId = document.getElementById('compose-text-quotedid').value.trim();
+      if (!text) return alert('Message text is required.');
+      buildBody = (number) => {
+        const body = { number, text };
+        if (quotedId) body.quoted = { key: { id: quotedId } };
+        return { endpoint: `/message/sendText/${getCfg().instance}`, body };
+      };
+    } else if (type === 'media') {
+      const mediatype = document.getElementById('compose-media-type').value;
+      const media = composeMediaBase64 || document.getElementById('compose-media-url').value.trim();
+      const mimetype = document.getElementById('compose-media-mimetype').value.trim();
+      const fileName = document.getElementById('compose-media-filename').value.trim();
+      const caption = document.getElementById('compose-media-caption').value.trim();
+      if (!media) return alert('Provide a URL or choose a file.');
+      if (!mimetype) return alert('MIME type is required.');
+      buildBody = (number) => {
+        const body = { number, mediatype, media, mimetype };
+        if (fileName) body.fileName = fileName;
+        if (caption) body.caption = caption;
+        return { endpoint: `/message/sendMedia/${getCfg().instance}`, body };
+      };
+    } else if (type === 'voice') {
+      const audio = composeVoiceBase64 || document.getElementById('compose-voice-url').value.trim();
+      const encoding = document.getElementById('compose-voice-encoding').checked;
+      if (!audio) return alert('Provide a URL or choose an audio file.');
+      buildBody = (number) => ({ endpoint: `/message/sendWhatsAppAudio/${getCfg().instance}`, body: { number, audio, encoding } });
+    } else if (type === 'poll') {
+      const name = document.getElementById('compose-poll-question').value.trim();
+      const values = [...document.querySelectorAll('.compose-poll-opt')].map(i => i.value.trim()).filter(Boolean);
+      const selectableCount = parseInt(document.getElementById('compose-poll-selectable').value);
+      if (!name) return alert('Poll question is required.');
+      if (values.length < 2) return alert('At least 2 options are required.');
+      buildBody = (number) => ({ endpoint: `/message/sendPoll/${getCfg().instance}`, body: { number, name, values, selectableCount } });
+    } else if (type === 'buttons') {
+      const title = document.getElementById('compose-btn-title').value.trim();
+      const description = document.getElementById('compose-btn-description').value.trim();
+      const footer = document.getElementById('compose-btn-footer').value.trim();
+      const buttons = [...document.querySelectorAll('#compose-btn-list .compose-btn-row')].map((row, i) => ({
+        type: 'reply',
+        reply: {
+          id: row.querySelector('.compose-btn-id').value.trim() || `btn${i + 1}`,
+          title: row.querySelector('.compose-btn-label').value.trim()
+        }
+      })).filter(b => b.reply.title);
+      if (!title) return alert('Title is required.');
+      if (!buttons.length) return alert('Add at least one button.');
+      buildBody = (number) => {
+        const body = { number, title, buttons };
+        if (description) body.description = description;
+        if (footer) body.footer = footer;
+        return { endpoint: `/message/sendButtons/${getCfg().instance}`, body };
+      };
+    }
+
+    const progress = document.getElementById('text-progress');
+    const sendBtn = document.getElementById('text-send-btn');
+    progress.className = 'text-xs rounded-lg px-3 py-2 bg-gray-50 text-gray-600';
+    sendBtn.disabled = true;
+
+    if (textRecipients.length === 1) {
+      const { endpoint, body } = buildBody(textRecipients[0]);
+      await apiCall(endpoint, body);
+      sendBtn.disabled = false;
+      return;
+    }
+
+    let ok = 0, fail = 0;
+    const numbers = [...textRecipients];
+    for (let i = 0; i < numbers.length; i++) {
+      const number = numbers[i];
+      progress.textContent = `Sending ${i + 1}/${numbers.length}: ${number}…`;
+      try {
+        const { endpoint, body } = buildBody(number);
+        const cfg = getCfg();
+        const res = await fetch(`${cfg.base}${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': cfg.apikey },
+          body: JSON.stringify(body)
+        });
+        if (res.ok) ok++; else fail++;
+      } catch (e) { fail++; }
+      if (i < numbers.length - 1) await randomDelay();
+    }
+    progress.className = `text-xs rounded-lg px-3 py-2 ${fail ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`;
+    progress.textContent = `Done: ${ok} sent${fail ? `, ${fail} failed` : ''}`;
+    sendBtn.disabled = false;
   }
 
   // ── SEND TEXT ─────────────────────────────────────────────────────────────
