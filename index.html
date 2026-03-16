@@ -711,79 +711,27 @@
                 </div>
               </div>
 
-              <!-- Broadcast composer -->
+              <!-- Group broadcast queue -->
               <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex flex-col gap-4">
-                <h3 class="text-sm font-semibold text-gray-800">Broadcast Message</h3>
+                <h3 class="text-sm font-semibold text-gray-800">Message Sequence</h3>
+                <div id="group-queue" class="space-y-3"></div>
+                <div id="group-queue-empty" class="text-center py-6 text-xs text-gray-400 border border-dashed border-gray-200 rounded-xl">
+                  Add messages to your sequence below
+                </div>
                 <div>
-                  <label class="block text-xs font-medium text-gray-600 mb-1.5">Message Type</label>
-                  <select id="bc-type" onchange="updateBroadcastFields()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
-                    <option value="text">Text</option>
-                    <option value="media">Media (Image / Video / Doc)</option>
-                    <option value="poll">Poll</option>
-                  </select>
-                </div>
-
-                <!-- Text -->
-                <div id="bc-text-wrap">
-                  <label class="block text-xs font-medium text-gray-600 mb-1.5">Message <span class="text-red-400">*</span></label>
-                  <textarea id="bc-text" rows="4" placeholder="Type your message..." class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"></textarea>
-                </div>
-
-                <!-- Media -->
-                <div id="bc-media-wrap" class="hidden space-y-2">
-                  <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1.5">Media Type</label>
-                    <select id="bc-mediatype" onchange="updateBcMime()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
-                      <option value="image">Image</option>
-                      <option value="video">Video</option>
-                      <option value="document">Document</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1.5">Media URL <span class="text-red-400">*</span></label>
-                    <input id="bc-media-url" type="text" placeholder="https://example.com/file.jpg" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
-                  </div>
-                  <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1.5">MIME Type</label>
-                    <input id="bc-mimetype" type="text" value="image/jpeg" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
-                  </div>
-                  <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1.5">Caption</label>
-                    <input id="bc-caption" type="text" placeholder="Optional caption" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
+                  <p class="text-xs text-gray-500 mb-2 font-medium">Add to sequence:</p>
+                  <div class="flex gap-2 flex-wrap">
+                    <button onclick="addGroupQueueItem('text')"    class="inline-flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 hover:border-green-400 hover:text-green-700 hover:bg-green-50 transition-colors text-gray-600">💬 Text</button>
+                    <button onclick="addGroupQueueItem('media')"   class="inline-flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 hover:border-green-400 hover:text-green-700 hover:bg-green-50 transition-colors text-gray-600">🖼 Media</button>
+                    <button onclick="addGroupQueueItem('voice')"   class="inline-flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 hover:border-green-400 hover:text-green-700 hover:bg-green-50 transition-colors text-gray-600">🎤 Voice</button>
+                    <button onclick="addGroupQueueItem('poll')"    class="inline-flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 hover:border-green-400 hover:text-green-700 hover:bg-green-50 transition-colors text-gray-600">📊 Poll</button>
+                    <button onclick="addGroupQueueItem('buttons')" class="inline-flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 hover:border-green-400 hover:text-green-700 hover:bg-green-50 transition-colors text-gray-600">⬜ Buttons</button>
                   </div>
                 </div>
-
-                <!-- Poll -->
-                <div id="bc-poll-wrap" class="hidden space-y-2">
-                  <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1.5">Poll Question <span class="text-red-400">*</span></label>
-                    <input id="bc-poll-q" type="text" placeholder="Your question?" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
-                  </div>
-                  <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1.5">Options <span class="text-gray-400 font-normal">(min 2)</span></label>
-                    <div id="bc-poll-opts" class="space-y-1.5">
-                      <input type="text" placeholder="Option 1" class="bc-poll-opt w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
-                      <input type="text" placeholder="Option 2" class="bc-poll-opt w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
-                    </div>
-                    <button onclick="addBcPollOpt()" class="mt-1.5 text-xs text-green-600 font-medium hover:text-green-700 flex items-center gap-1">
-                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg> Add option
-                    </button>
-                  </div>
-                  <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1.5">Max Selections</label>
-                    <select id="bc-poll-sel" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
-                      <option value="1">1 (single choice)</option>
-                      <option value="2">2</option>
-                      <option value="0">Unlimited</option>
-                    </select>
-                  </div>
-                </div>
-
                 <div id="bc-progress" class="hidden text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2"></div>
-
-                <button onclick="broadcastMessage()" class="btn-send w-full text-white font-semibold py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
+                <button id="group-broadcast-btn" onclick="sendGroupBroadcast()" class="btn-send w-full text-white font-semibold py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>
-                  Broadcast to Selected Groups
+                  <span id="group-broadcast-label">Broadcast to Selected Groups</span>
                 </button>
               </div>
             </div>
@@ -1463,74 +1411,93 @@
         ${selectedGroups[jid].slice(0, 20)}
         <button onclick="toggleGroup('${jid}','',false); document.querySelectorAll('input[type=checkbox]').forEach(cb => { if(cb.closest('label') && cb.closest('label').querySelector('input')===cb) {} }); renderGroupList(allGroups);" class="text-green-500 hover:text-red-500 ml-0.5">✕</button>
       </span>`).join('');
+    updateGroupQueueState();
   }
 
-  function updateBroadcastFields() {
-    const type = document.getElementById('bc-type').value;
-    document.getElementById('bc-text-wrap').classList.toggle('hidden', type !== 'text');
-    document.getElementById('bc-media-wrap').classList.toggle('hidden', type !== 'media');
-    document.getElementById('bc-poll-wrap').classList.toggle('hidden', type !== 'poll');
+  // ── GROUP BROADCAST QUEUE ─────────────────────────────────────────────────
+  function addGroupQueueItem(type) {
+    const qid = ++queueIdCounter;
+    const container = document.getElementById('group-queue');
+    const div = document.createElement('div');
+    div.id = `qitem-${qid}`;
+    div.dataset.type = type;
+    div.className = 'border border-gray-200 rounded-xl overflow-hidden';
+    div.innerHTML = queueItemHTML(type, qid, 'removeGroupQueueItem');
+    container.appendChild(div);
+    updateGroupQueueState();
   }
 
-  function updateBcMime() {
-    const t = document.getElementById('bc-mediatype').value;
-    const m = { image: 'image/jpeg', video: 'video/mp4', document: 'application/pdf' };
-    document.getElementById('bc-mimetype').value = m[t] || '';
+  function removeGroupQueueItem(qid) {
+    document.getElementById(`qitem-${qid}`)?.remove();
+    delete queueFileData[qid];
+    updateGroupQueueState();
   }
 
-  function addBcPollOpt() {
-    const c = document.getElementById('bc-poll-opts');
-    const inp = document.createElement('input');
-    inp.type = 'text'; inp.placeholder = `Option ${c.children.length + 1}`;
-    inp.className = 'bc-poll-opt w-full border border-gray-300 rounded-lg px-3 py-2 text-sm';
-    c.appendChild(inp);
+  function updateGroupQueueState() {
+    const queue = document.getElementById('group-queue');
+    const empty = document.getElementById('group-queue-empty');
+    const hasItems = queue.children.length > 0;
+    empty.classList.toggle('hidden', hasItems);
+    const label = document.getElementById('group-broadcast-label');
+    if (label) {
+      const g = Object.keys(selectedGroups).length;
+      const m = queue.children.length;
+      const total = g * m;
+      if (!hasItems || !g) {
+        label.textContent = 'Broadcast to Selected Groups';
+      } else {
+        label.textContent = `Broadcast ${m} message${m > 1 ? 's' : ''} to ${g} group${g > 1 ? 's' : ''} (${total} sends)`;
+      }
+    }
   }
 
-  async function broadcastMessage() {
+  async function sendGroupBroadcast() {
     const jids = Object.keys(selectedGroups);
     if (!jids.length) return alert('Select at least one group first.');
-    const type = document.getElementById('bc-type').value;
-    const progress = document.getElementById('bc-progress');
-    progress.classList.remove('hidden');
+    const queueItems = [...document.getElementById('group-queue').children];
+    if (!queueItems.length) return alert('Add at least one message to the sequence.');
 
-    let buildBody;
-    if (type === 'text') {
-      const text = document.getElementById('bc-text').value.trim();
-      if (!text) return alert('Message text is required.');
-      buildBody = (number) => ({ endpoint: `/message/sendText/${getCfg().instance}`, body: { number, text } });
-    } else if (type === 'media') {
-      const media = document.getElementById('bc-media-url').value.trim();
-      const mimetype = document.getElementById('bc-mimetype').value.trim();
-      const mediatype = document.getElementById('bc-mediatype').value;
-      const caption = document.getElementById('bc-caption').value.trim();
-      if (!media) return alert('Media URL is required.');
-      buildBody = (number) => ({ endpoint: `/message/sendMedia/${getCfg().instance}`, body: { number, media, mimetype, mediatype, ...(caption && { caption }) } });
-    } else {
-      const name = document.getElementById('bc-poll-q').value.trim();
-      const values = [...document.querySelectorAll('.bc-poll-opt')].map(i => i.value.trim()).filter(Boolean);
-      const selectableCount = parseInt(document.getElementById('bc-poll-sel').value);
-      if (!name || values.length < 2) return alert('Poll question and at least 2 options required.');
-      buildBody = (number) => ({ endpoint: `/message/sendPoll/${getCfg().instance}`, body: { number, name, values, selectableCount } });
+    // Validate all items upfront
+    for (const item of queueItems) {
+      const qid = parseInt(item.id.replace('qitem-', ''));
+      const type = item.dataset.type;
+      try { await buildQueueItemBody(qid, type, 'test'); } catch(e) { return alert(`${Q_ICONS[type]} ${e.message}`); }
     }
 
-    let ok = 0, fail = 0;
+    const progress = document.getElementById('bc-progress');
+    const btn = document.getElementById('group-broadcast-btn');
+    progress.className = 'text-xs rounded-lg px-3 py-2 bg-gray-50 text-gray-600';
+    progress.classList.remove('hidden');
+    btn.disabled = true;
+
+    const total = jids.length * queueItems.length;
+    let ok = 0, fail = 0, done = 0;
+
     for (let i = 0; i < jids.length; i++) {
       const jid = jids[i];
-      progress.textContent = `Sending ${i + 1}/${jids.length}: ${selectedGroups[jid]}...`;
-      const { endpoint, body } = buildBody(jid);
-      try {
-        const cfg = getCfg();
-        const res = await fetch(`${cfg.base}${endpoint}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'apikey': cfg.apikey },
-          body: JSON.stringify(body)
-        });
-        if (res.ok) ok++; else fail++;
-      } catch { fail++; }
-      await randomDelay();
+      for (let j = 0; j < queueItems.length; j++) {
+        const item = queueItems[j];
+        const qid = parseInt(item.id.replace('qitem-', ''));
+        const type = item.dataset.type;
+        done++;
+        progress.textContent = `Group ${i + 1}/${jids.length} · Message ${j + 1}/${queueItems.length} · ${done}/${total} total…`;
+        try {
+          const { endpoint, body } = await buildQueueItemBody(qid, type, jid);
+          const cfg = getCfg();
+          const res = await fetch(`${cfg.base}${endpoint}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'apikey': cfg.apikey },
+            body: JSON.stringify(body)
+          });
+          if (res.ok) ok++; else fail++;
+        } catch { fail++; }
+        if (!(i === jids.length - 1 && j === queueItems.length - 1)) await randomDelay();
+      }
     }
-    progress.textContent = `✓ Done! ${ok} sent, ${fail} failed.`;
-    progress.className = fail ? 'text-xs rounded-lg px-3 py-2 bg-yellow-50 text-yellow-700' : 'text-xs rounded-lg px-3 py-2 bg-green-50 text-green-700';
+
+    progress.className = `text-xs rounded-lg px-3 py-2 ${fail ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`;
+    progress.textContent = `Done: ${ok}/${total} sent${fail ? `, ${fail} failed` : ''}`;
+    btn.disabled = false;
   }
 
   async function createGroup() {
@@ -1748,7 +1715,7 @@
   const Q_ICONS  = { text: '💬', media: '🖼', voice: '🎤', poll: '📊', buttons: '⬜' };
   const Q_LABELS = { text: 'Text Message', media: 'Media', voice: 'Voice Note', poll: 'Poll', buttons: 'Buttons' };
 
-  function queueItemHTML(type, qid) {
+  function queueItemHTML(type, qid, removeFn = 'removeQueueItem') {
     const mimes = { image: 'image/jpeg', video: 'video/mp4', document: 'application/pdf', audio: 'audio/mpeg' };
     let fields = '';
 
@@ -1870,7 +1837,7 @@
     return `
       <div class="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-100 rounded-t-xl">
         <span class="text-sm font-semibold text-gray-700">${Q_ICONS[type]} ${Q_LABELS[type]}</span>
-        <button onclick="removeQueueItem(${qid})" class="text-gray-400 hover:text-red-500 text-xl leading-none font-light" title="Remove">×</button>
+        <button onclick="${removeFn}(${qid})" class="text-gray-400 hover:text-red-500 text-xl leading-none font-light" title="Remove">×</button>
       </div>
       <div class="p-4 space-y-3">${fields}</div>`;
   }
@@ -2078,7 +2045,7 @@
       if (this.value.trim()) { addTextChip(this.value.trim()); this.value = ''; }
     });
   }
-  document.addEventListener('DOMContentLoaded', () => { initTextChips(); addQueueItem('text'); });
+  document.addEventListener('DOMContentLoaded', () => { initTextChips(); addQueueItem('text'); addGroupQueueItem('text'); });
 
   function addTextChip(raw) {
     if (!raw || !raw.trim()) return;
