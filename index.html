@@ -224,7 +224,7 @@
 
   <!-- Main -->
   <main class="flex-1 flex flex-col overflow-hidden">
-    <div class="flex-1 overflow-y-auto p-6">
+    <div id="content-scroll" class="flex-1 overflow-y-auto p-6">
 
       <!-- COMPOSE -->
       <div id="tab-text" class="tab-panel active max-w-2xl">
@@ -1098,6 +1098,8 @@
         </div>
       </div>
 
+    </div><!-- end scroll container -->
+
     <!-- Response Panel -->
     <div class="border-t border-gray-200 bg-white">
       <div class="flex items-center justify-between px-6 py-3 border-b border-gray-100">
@@ -1747,11 +1749,11 @@
     btn.classList.remove('text-gray-600');
     clearResponse();
     // Reset scroll to top
-    const scrollArea = document.querySelector('main > .overflow-y-auto');
+    const scrollArea = document.getElementById('content-scroll');
     if (scrollArea) scrollArea.scrollTop = 0;
     // Hide the response panel for tabs that don't make direct API calls
     const noResponsePanel = ['scheduled', 'settings'];
-    const panel = document.querySelector('main > .border-t');
+    const panel = document.querySelector('main > div.border-t');
     if (panel) panel.style.display = noResponsePanel.includes(name) ? 'none' : '';
   }
 
