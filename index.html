@@ -2049,7 +2049,7 @@
       if (this.value.trim()) { addTextChip(this.value.trim()); this.value = ''; }
     });
   }
-  document.addEventListener('DOMContentLoaded', initTextChips);
+  document.addEventListener('DOMContentLoaded', () => { initTextChips(); addQueueItem('text'); });
 
   function addTextChip(raw) {
     if (!raw || !raw.trim()) return;
