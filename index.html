@@ -2104,15 +2104,76 @@
     });
   }
   // ── SCHEDULER ─────────────────────────────────────────────────────────────
-  function loadJobs() {
-    try { return JSON.parse(localStorage.getItem('wa_scheduled_jobs') || '[]'); } catch { return []; }
+  const DB_NAME = 'wa_manager', DB_VERSION = 1, STORE_NAME = 'scheduled_jobs';
+  let _db = null;
+
+  function openDB() {
+    if (_db) return Promise.resolve(_db);
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = e => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+        }
+      };
+      req.onsuccess = e => { _db = e.target.result; resolve(_db); };
+      req.onerror = e => reject(e.target.error);
+    });
   }
-  function saveJobs(jobs) {
-    localStorage.setItem('wa_scheduled_jobs', JSON.stringify(jobs));
-    updateScheduledBadge();
+
+  async function initDB() {
+    await openDB();
+    // Migrate from localStorage if any jobs exist there
+    const raw = localStorage.getItem('wa_scheduled_jobs');
+    if (raw) {
+      try {
+        const jobs = JSON.parse(raw);
+        if (jobs.length) {
+          const db = await openDB();
+          const tx = db.transaction(STORE_NAME, 'readwrite');
+          const store = tx.objectStore(STORE_NAME);
+          jobs.forEach(j => store.put(j));
+          await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
+        }
+      } catch {}
+      localStorage.removeItem('wa_scheduled_jobs');
+    }
   }
-  function updateScheduledBadge() {
-    const pending = loadJobs().filter(j => j.status === 'pending').length;
+
+  async function loadJobs() {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const req = tx.objectStore(STORE_NAME).getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = e => reject(e.target.error);
+    });
+  }
+
+  async function saveJob(job) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      tx.objectStore(STORE_NAME).put(job);
+      tx.oncomplete = resolve;
+      tx.onerror = e => reject(e.target.error);
+    });
+  }
+
+  async function deleteJob(id) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      tx.objectStore(STORE_NAME).delete(id);
+      tx.oncomplete = resolve;
+      tx.onerror = e => reject(e.target.error);
+    });
+  }
+
+  async function updateScheduledBadge() {
+    const jobs = await loadJobs();
+    const pending = jobs.filter(j => j.status === 'pending').length;
     const badge = document.getElementById('scheduled-badge');
     if (!badge) return;
     if (pending > 0) { badge.textContent = pending; badge.classList.remove('hidden'); }
@@ -2212,11 +2273,10 @@
   }
 
   async function runJob(job) {
-    const jobs = loadJobs();
-    const idx = jobs.findIndex(j => j.id === job.id);
-    if (idx === -1 || jobs[idx].status !== 'pending') return;
-    jobs[idx].status = 'running';
-    saveJobs(jobs);
+    const current = (await loadJobs()).find(j => j.id === job.id);
+    if (!current || current.status !== 'pending') return;
+    current.status = 'running';
+    await saveJob(current);
     renderScheduledJobs();
 
     const recipients = Array.isArray(job.recipients) ? job.recipients : Object.keys(job.recipients);
@@ -2239,13 +2299,12 @@
       }
     }
 
-    const allJobs = loadJobs();
-    const i2 = allJobs.findIndex(j => j.id === job.id);
-    if (i2 !== -1) {
-      allJobs[i2].status = fail === total ? 'failed' : 'done';
-      allJobs[i2].result = `${ok}/${total} sent${fail ? `, ${fail} failed` : ''}`;
-      allJobs[i2].ranAt = new Date().toISOString();
-      saveJobs(allJobs);
+    const updated = (await loadJobs()).find(j => j.id === job.id);
+    if (updated) {
+      updated.status = fail === total ? 'failed' : 'done';
+      updated.result = `${ok}/${total} sent${fail ? `, ${fail} failed` : ''}`;
+      updated.ranAt = new Date().toISOString();
+      await saveJob(updated);
     }
     renderScheduledJobs();
   }
@@ -2253,7 +2312,7 @@
   function startSchedulerPoller() {
     async function check() {
       const now = Date.now();
-      const jobs = loadJobs();
+      const jobs = await loadJobs();
       for (const job of jobs) {
         if (job.status === 'pending' && new Date(job.scheduledAt).getTime() <= now) {
           await runJob(job);
@@ -2264,16 +2323,15 @@
     setInterval(check, 30000);
   }
 
-  function scheduleCompose() {
+  async function scheduleCompose() {
     const rawInput = document.getElementById('text-number').value.trim();
     if (rawInput) { addTextChip(rawInput); document.getElementById('text-number').value = ''; }
     if (!textRecipients.length) return alert('Add at least one recipient number.');
-    const { items, hasFiles } = serializeQueue('compose-queue');
+    const { items } = serializeQueue('compose-queue');
     if (!items.length) return alert('Add at least one message to the sequence.');
     const dt = document.getElementById('compose-schedule-dt').value;
     if (!dt) return alert('Pick a date and time.');
     if (new Date(dt).getTime() <= Date.now()) return alert('Scheduled time must be in the future.');
-    if (hasFiles && !confirm('This job includes uploaded files stored in localStorage. Large files may fail. Continue?')) return;
     const job = {
       id: `job_${Date.now()}`,
       createdAt: new Date().toISOString(),
@@ -2283,24 +2341,20 @@
       items,
       status: 'pending'
     };
-    const jobs = loadJobs();
-    jobs.push(job);
-    saveJobs(jobs);
+    await saveJob(job);
     document.getElementById('compose-schedule-panel').classList.add('hidden');
     renderScheduledJobs();
-    const formatted = new Date(dt).toLocaleString();
-    alert(`Scheduled! Will send at ${formatted}. Keep this tab open.`);
+    alert(`Scheduled! Will send at ${new Date(dt).toLocaleString()}. Keep this tab open.`);
   }
 
-  function scheduleGroupBroadcast() {
+  async function scheduleGroupBroadcast() {
     const jids = Object.keys(selectedGroups);
     if (!jids.length) return alert('Select at least one group first.');
-    const { items, hasFiles } = serializeQueue('group-queue');
+    const { items } = serializeQueue('group-queue');
     if (!items.length) return alert('Add at least one message to the sequence.');
     const dt = document.getElementById('groups-schedule-dt').value;
     if (!dt) return alert('Pick a date and time.');
     if (new Date(dt).getTime() <= Date.now()) return alert('Scheduled time must be in the future.');
-    if (hasFiles && !confirm('This job includes uploaded files stored in localStorage. Large files may fail. Continue?')) return;
     const job = {
       id: `job_${Date.now()}`,
       createdAt: new Date().toISOString(),
@@ -2310,36 +2364,47 @@
       items,
       status: 'pending'
     };
-    const jobs = loadJobs();
-    jobs.push(job);
-    saveJobs(jobs);
+    await saveJob(job);
     document.getElementById('groups-schedule-panel').classList.add('hidden');
     renderScheduledJobs();
-    const formatted = new Date(dt).toLocaleString();
-    alert(`Scheduled! Will send at ${formatted}. Keep this tab open.`);
+    alert(`Scheduled! Will send at ${new Date(dt).toLocaleString()}. Keep this tab open.`);
   }
 
-  function cancelJob(id) {
-    const jobs = loadJobs();
-    const idx = jobs.findIndex(j => j.id === id);
-    if (idx !== -1 && jobs[idx].status === 'pending') {
-      jobs[idx].status = 'cancelled';
-      saveJobs(jobs);
+  async function cancelJob(id) {
+    const jobs = await loadJobs();
+    const job = jobs.find(j => j.id === id);
+    if (job && job.status === 'pending') {
+      job.status = 'cancelled';
+      await saveJob(job);
       renderScheduledJobs();
     }
   }
 
-  function clearDoneJobs() {
-    const jobs = loadJobs().filter(j => j.status === 'pending' || j.status === 'running');
-    saveJobs(jobs);
+  async function uncancelJob(id) {
+    const jobs = await loadJobs();
+    const job = jobs.find(j => j.id === id);
+    if (job && job.status === 'cancelled') {
+      if (new Date(job.scheduledAt).getTime() <= Date.now()) {
+        return alert('Scheduled time has already passed. Edit the schedule or create a new job.');
+      }
+      job.status = 'pending';
+      await saveJob(job);
+      renderScheduledJobs();
+    }
+  }
+
+  async function clearDoneJobs() {
+    const jobs = await loadJobs();
+    const toDelete = jobs.filter(j => j.status !== 'pending' && j.status !== 'running');
+    await Promise.all(toDelete.map(j => deleteJob(j.id)));
     renderScheduledJobs();
   }
 
-  function renderScheduledJobs() {
-    updateScheduledBadge();
+  async function renderScheduledJobs() {
+    await updateScheduledBadge();
     const container = document.getElementById('scheduled-jobs-list');
     if (!container) return;
-    const jobs = loadJobs().slice().reverse();
+    const jobs = (await loadJobs()).slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     if (!jobs.length) {
       container.innerHTML = '<p class="text-sm text-gray-400 text-center py-12">No scheduled jobs yet.</p>';
       return;
@@ -2353,28 +2418,289 @@
     };
     const statusLabel = { pending: '🕐 Pending', running: '⏳ Sending…', done: '✓ Done', failed: '✗ Failed', cancelled: 'Cancelled' };
     container.innerHTML = jobs.map(job => {
-      const recCount = Array.isArray(job.recipients) ? job.recipients.length : Object.keys(job.recipients).length;
+      const recArray = Array.isArray(job.recipients) ? job.recipients : Object.values(job.recipients);
+      const recCount = recArray.length;
       const typeLabel = job.type === 'groups' ? `${recCount} group${recCount > 1 ? 's' : ''}` : `${recCount} recipient${recCount > 1 ? 's' : ''}`;
       const scheduledStr = new Date(job.scheduledAt).toLocaleString();
       const st = statusStyle[job.status] || statusStyle.cancelled;
       const label = statusLabel[job.status] || job.status;
+      const msgPreviews = job.items.map(item => {
+        const icon = Q_ICONS[item.type] || '📨';
+        let snippet = '';
+        if (item.type === 'text') snippet = (item.data?.text || '').slice(0, 80) + ((item.data?.text || '').length > 80 ? '…' : '');
+        else if (item.type === 'media') snippet = `${item.data?.mediatype || 'media'}${item.data?.caption ? ` · "${item.data.caption.slice(0,50)}"` : ''}`;
+        else if (item.type === 'voice') snippet = 'Voice note';
+        else if (item.type === 'poll') snippet = item.data?.question ? `"${item.data.question.slice(0,60)}"` : 'Poll';
+        else if (item.type === 'buttons') snippet = item.data?.title ? `"${item.data.title.slice(0,60)}"` : 'Buttons';
+        return `<span class="text-gray-500">${icon}</span> <span class="text-gray-700">${snippet.replace(/</g,'&lt;')}</span>`;
+      }).join('<br>');
+
+      // Build full details HTML
+      const msgDetails = job.items.map((item, idx) => {
+        const icon = Q_ICONS[item.type] || '📨';
+        let detail = '';
+        if (item.type === 'text') detail = item.data?.text ? `<span class="text-gray-700">${item.data.text.replace(/</g,'&lt;')}</span>` : '<span class="text-gray-400 italic">empty</span>';
+        else if (item.type === 'media') detail = `<span class="text-gray-500">${item.data?.mediatype || 'media'}${item.data?.filename ? ` · ${item.data.filename}` : ''}${item.data?.caption ? ` · "${item.data.caption}"` : ''}</span>`;
+        else if (item.type === 'voice') detail = `<span class="text-gray-500">${item.data?.url ? item.data.url.slice(0,60) : (item.data?.base64 ? 'uploaded file' : 'no source')}</span>`;
+        else if (item.type === 'poll') detail = `<span class="text-gray-500">${item.data?.question || ''}${item.data?.options?.length ? ` · ${item.data.options.join(', ')}` : ''}</span>`;
+        else if (item.type === 'buttons') detail = `<span class="text-gray-500">${item.data?.title || ''}${item.data?.buttons?.length ? ` · [${item.data.buttons.map(b=>b.label).join(' | ')}]` : ''}</span>`;
+        return `<div class="flex gap-2 text-xs py-1 border-b border-gray-100 last:border-0"><span class="shrink-0 w-5">${icon}</span>${detail}</div>`;
+      }).join('');
+      const recDetails = recArray.map(r => `<span class="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">${r}</span>`).join(' ');
+
       return `
-        <div class="bg-white rounded-xl border ${st.split(' ')[2] || 'border-gray-200'} shadow-sm p-4 flex items-start justify-between gap-4">
-          <div class="flex-1 min-w-0 space-y-1">
-            <div class="flex items-center gap-2 flex-wrap">
-              <span class="text-xs font-semibold px-2 py-0.5 rounded-full border ${st}">${label}</span>
-              <span class="text-xs text-gray-500">${job.type === 'groups' ? '📢 Group broadcast' : '💬 Compose'}</span>
+        <div class="bg-white rounded-xl border ${st.split(' ')[2] || 'border-gray-200'} shadow-sm overflow-hidden">
+          <div class="p-4 flex items-start justify-between gap-4">
+            <div class="flex-1 min-w-0 space-y-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-xs font-semibold px-2 py-0.5 rounded-full border ${st}">${label}</span>
+                <span class="text-xs text-gray-500">${job.type === 'groups' ? '📢 Group broadcast' : '💬 Compose'}</span>
+              </div>
+              <p class="text-sm font-medium text-gray-800">📅 ${scheduledStr}</p>
+              <p class="text-xs text-gray-500">${typeLabel} · ${job.items.length} message${job.items.length > 1 ? 's' : ''}</p>
+              <div class="text-xs leading-5">${msgPreviews}</div>
+              ${job.result ? `<p class="text-xs font-medium ${job.status === 'failed' ? 'text-red-600' : 'text-green-600'}">${job.result}</p>` : ''}
             </div>
-            <p class="text-sm font-medium text-gray-800">📅 ${scheduledStr}</p>
-            <p class="text-xs text-gray-500">${typeLabel} · ${job.items.length} message${job.items.length > 1 ? 's' : ''} · ${job.items.map(i => Q_ICONS[i.type]).join(' ')}</p>
-            ${job.result ? `<p class="text-xs font-medium ${job.status === 'failed' ? 'text-red-600' : 'text-green-600'}">${job.result}</p>` : ''}
+            <div class="flex flex-col items-end gap-2 shrink-0">
+              ${job.status === 'pending' ? `<button onclick="cancelJob('${job.id}')" class="text-xs text-gray-400 hover:text-red-500 border border-gray-200 hover:border-red-300 px-3 py-1.5 rounded-lg transition-colors">Cancel</button>` : ''}
+              ${job.status === 'pending' ? `<button onclick="editJob('${job.id}')" class="text-xs text-gray-400 hover:text-orange-500 border border-gray-200 hover:border-orange-300 px-3 py-1.5 rounded-lg transition-colors">Cancel & Edit</button>` : ''}
+              ${job.status === 'cancelled' ? `<button onclick="uncancelJob('${job.id}')" class="text-xs text-gray-400 hover:text-green-600 border border-gray-200 hover:border-green-400 px-3 py-1.5 rounded-lg transition-colors">Restore</button>` : ''}
+              ${['done','cancelled'].includes(job.status) ? `<button onclick="toggleResendPanel('${job.id}')" class="text-xs text-gray-400 hover:text-blue-500 border border-gray-200 hover:border-blue-300 px-3 py-1.5 rounded-lg transition-colors">Resend</button>` : ''}
+              <button onclick="duplicateJob('${job.id}')" class="text-xs text-gray-400 hover:text-purple-500 border border-gray-200 hover:border-purple-300 px-3 py-1.5 rounded-lg transition-colors">Duplicate</button>
+              <button onclick="toggleJobDetails('${job.id}')" class="text-xs text-gray-400 hover:text-blue-500 border border-gray-200 hover:border-blue-300 px-3 py-1.5 rounded-lg transition-colors">Details ▾</button>
+            </div>
           </div>
-          ${job.status === 'pending' ? `<button onclick="cancelJob('${job.id}')" class="shrink-0 text-xs text-gray-400 hover:text-red-500 border border-gray-200 hover:border-red-300 px-3 py-1.5 rounded-lg transition-colors">Cancel</button>` : ''}
+          <div id="job-details-${job.id}" class="hidden border-t border-gray-100 bg-gray-50 px-4 py-3 space-y-3">
+            <div>
+              <p class="text-xs font-semibold text-gray-500 mb-1">Messages</p>
+              ${msgDetails}
+            </div>
+            <div>
+              <p class="text-xs font-semibold text-gray-500 mb-1">Recipients</p>
+              <div class="flex flex-wrap gap-1">${recDetails}</div>
+            </div>
+            <p class="text-xs text-gray-400">Created: ${new Date(job.createdAt).toLocaleString()}</p>
+          </div>
+          <div id="resend-panel-${job.id}" class="hidden border-t border-gray-100 bg-blue-50 px-4 py-3">
+            <p class="text-xs font-semibold text-gray-500 mb-2">Pick a new send time</p>
+            <div class="flex gap-2 items-center">
+              <input type="datetime-local" id="resend-dt-${job.id}" class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm flex-1"/>
+              <button onclick="confirmResend('${job.id}')" class="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors">Confirm</button>
+              <button onclick="toggleResendPanel('${job.id}')" class="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg transition-colors">✕</button>
+            </div>
+          </div>
         </div>`;
     }).join('');
   }
 
-  document.addEventListener('DOMContentLoaded', () => { initTextChips(); addQueueItem('text'); addGroupQueueItem('text'); renderScheduledJobs(); startSchedulerPoller(); });
+  function toggleJobDetails(id) {
+    const el = document.getElementById(`job-details-${id}`);
+    if (!el) return;
+    const isHidden = el.classList.toggle('hidden');
+    const btn = el.previousElementSibling?.querySelector(`button[onclick="toggleJobDetails('${id}')"]`);
+    if (btn) btn.textContent = isHidden ? 'Details ▾' : 'Details ▴';
+  }
+
+  function toggleResendPanel(id) {
+    const panel = document.getElementById(`resend-panel-${id}`);
+    if (!panel) return;
+    const isHidden = panel.classList.toggle('hidden');
+    if (!isHidden) {
+      const dtInput = document.getElementById(`resend-dt-${id}`);
+      const d = new Date(Date.now() + 3600000);
+      d.setSeconds(0, 0);
+      dtInput.value = d.toISOString().slice(0, 16);
+    }
+  }
+
+  async function confirmResend(id) {
+    const jobs = await loadJobs();
+    const job = jobs.find(j => j.id === id);
+    if (!job) return;
+    const dtVal = document.getElementById(`resend-dt-${id}`).value;
+    if (!dtVal || new Date(dtVal).getTime() <= Date.now()) {
+      return alert('Please pick a future date and time.');
+    }
+    const clone = {
+      ...job,
+      id: `job_${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      scheduledAt: new Date(dtVal).toISOString(),
+      status: 'pending',
+      result: undefined,
+      ranAt: undefined
+    };
+    await saveJob(clone);
+    await renderScheduledJobs();
+  }
+
+  function populateQueueItem(qid, item) {
+    const { type, data } = item;
+    if (type === 'text') {
+      const t = document.getElementById(`q${qid}-text`);
+      if (t) t.value = data.text || '';
+      const q = document.getElementById(`q${qid}-quotedid`);
+      if (q) q.value = data.quotedId || '';
+    } else if (type === 'media') {
+      const mt = document.getElementById(`q${qid}-mediatype`);
+      if (mt) mt.value = data.mediatype || 'image';
+      const url = document.getElementById(`q${qid}-url`);
+      if (url) url.value = data.url || '';
+      if (data.base64) {
+        queueFileData[qid] = data.base64;
+        const badge = document.getElementById(`q${qid}-badge`);
+        if (badge) { badge.textContent = data.filename || 'uploaded file'; badge.classList.remove('hidden'); }
+      }
+      const mime = document.getElementById(`q${qid}-mimetype`);
+      if (mime) mime.value = data.mimetype || '';
+      const fn = document.getElementById(`q${qid}-filename`);
+      if (fn) fn.value = data.filename || '';
+      const cap = document.getElementById(`q${qid}-caption`);
+      if (cap) cap.value = data.caption || '';
+    } else if (type === 'voice') {
+      const url = document.getElementById(`q${qid}-url`);
+      if (url) url.value = data.url || '';
+      if (data.base64) {
+        queueFileData[qid] = data.base64;
+        const badge = document.getElementById(`q${qid}-badge`);
+        if (badge) { badge.textContent = 'uploaded file'; badge.classList.remove('hidden'); }
+      }
+      const enc = document.getElementById(`q${qid}-encoding`);
+      if (enc) enc.checked = data.encoding !== false;
+    } else if (type === 'poll') {
+      const q = document.getElementById(`q${qid}-question`);
+      if (q) q.value = data.question || '';
+      const optContainer = document.getElementById(`q${qid}-options`);
+      if (optContainer && data.options) {
+        data.options.forEach((opt, i) => {
+          const opts = optContainer.querySelectorAll(`.q${qid}-opt`);
+          if (i < opts.length) {
+            opts[i].value = opt;
+          } else {
+            addQueuePollOption(qid);
+            const newOpts = optContainer.querySelectorAll(`.q${qid}-opt`);
+            newOpts[newOpts.length - 1].value = opt;
+          }
+        });
+      }
+      const sel = document.getElementById(`q${qid}-selectable`);
+      if (sel) sel.value = data.selectable || 1;
+    } else if (type === 'buttons') {
+      const t = document.getElementById(`q${qid}-title`);
+      if (t) t.value = data.title || '';
+      const d = document.getElementById(`q${qid}-description`);
+      if (d) d.value = data.description || '';
+      const f = document.getElementById(`q${qid}-footer`);
+      if (f) f.value = data.footer || '';
+      const btnList = document.getElementById(`q${qid}-btnlist`);
+      if (btnList && data.buttons) {
+        data.buttons.forEach((btn, i) => {
+          const rows = btnList.querySelectorAll(`.q${qid}-btnrow`);
+          if (i >= rows.length) addQueueButtonRow(qid);
+          const updatedRows = btnList.querySelectorAll(`.q${qid}-btnrow`);
+          const row = updatedRows[i];
+          if (row) {
+            const lbl = row.querySelector(`.q${qid}-btnlabel`);
+            const bid = row.querySelector(`.q${qid}-btnid`);
+            if (lbl) lbl.value = btn.label || '';
+            if (bid) bid.value = btn.id || '';
+          }
+        });
+      }
+    }
+  }
+
+  async function editJob(id) {
+    const jobs = await loadJobs();
+    const job = jobs.find(j => j.id === id);
+    if (!job) return;
+
+    if (job.type === 'compose') {
+      // Reload recipients
+      textRecipients.length = 0;
+      job.recipients.forEach(r => textRecipients.push(r));
+      renderTextChips();
+      // Clear and reload compose queue
+      const composeQueueEl = document.getElementById('compose-queue');
+      while (composeQueueEl.firstChild) composeQueueEl.removeChild(composeQueueEl.firstChild);
+      job.items.forEach(item => {
+        addQueueItem(item.type);
+        populateQueueItem(queueIdCounter, item);
+      });
+      updateQueueState();
+      // Pre-fill schedule panel
+      document.getElementById('compose-schedule-dt').value = new Date(job.scheduledAt).toISOString().slice(0, 16);
+      document.getElementById('compose-schedule-panel').classList.remove('hidden');
+      // Switch to compose tab
+      const composeBtn = [...document.querySelectorAll('.sidebar-btn')].find(b => b.getAttribute('onclick') === "switchTab('text', this)");
+      if (composeBtn) switchTab('text', composeBtn);
+    } else if (job.type === 'groups') {
+      // Reload selected groups
+      selectedGroups = { ...job.recipients };
+      renderSelectedChips();
+      // Clear and reload groups queue
+      const groupQueueEl = document.getElementById('group-queue');
+      while (groupQueueEl.firstChild) groupQueueEl.removeChild(groupQueueEl.firstChild);
+      job.items.forEach(item => {
+        addGroupQueueItem(item.type);
+        populateQueueItem(queueIdCounter, item);
+      });
+      updateGroupQueueState();
+      // Pre-fill schedule panel
+      document.getElementById('groups-schedule-dt').value = new Date(job.scheduledAt).toISOString().slice(0, 16);
+      document.getElementById('groups-schedule-panel').classList.remove('hidden');
+      // Switch to groups tab
+      const groupsBtn = [...document.querySelectorAll('.sidebar-btn')].find(b => b.getAttribute('onclick') === "switchTab('groups', this)");
+      if (groupsBtn) switchTab('groups', groupsBtn);
+    }
+
+    // Cancel the original pending job
+    job.status = 'cancelled';
+    await saveJob(job);
+    await renderScheduledJobs();
+    updateScheduledBadge();
+  }
+
+  async function duplicateJob(id) {
+    const jobs = await loadJobs();
+    const job = jobs.find(j => j.id === id);
+    if (!job) return;
+
+    if (job.type === 'compose') {
+      textRecipients.length = 0;
+      job.recipients.forEach(r => textRecipients.push(r));
+      renderTextChips();
+      const composeQueueEl = document.getElementById('compose-queue');
+      while (composeQueueEl.firstChild) composeQueueEl.removeChild(composeQueueEl.firstChild);
+      job.items.forEach(item => { addQueueItem(item.type); populateQueueItem(queueIdCounter, item); });
+      updateQueueState();
+      document.getElementById('compose-schedule-dt').value = '';
+      document.getElementById('compose-schedule-panel').classList.remove('hidden');
+      const composeBtn = [...document.querySelectorAll('.sidebar-btn')].find(b => b.getAttribute('onclick') === "switchTab('text', this)");
+      if (composeBtn) switchTab('text', composeBtn);
+    } else if (job.type === 'groups') {
+      selectedGroups = { ...job.recipients };
+      renderSelectedChips();
+      const groupQueueEl = document.getElementById('group-queue');
+      while (groupQueueEl.firstChild) groupQueueEl.removeChild(groupQueueEl.firstChild);
+      job.items.forEach(item => { addGroupQueueItem(item.type); populateQueueItem(queueIdCounter, item); });
+      updateGroupQueueState();
+      document.getElementById('groups-schedule-dt').value = '';
+      document.getElementById('groups-schedule-panel').classList.remove('hidden');
+      const groupsBtn = [...document.querySelectorAll('.sidebar-btn')].find(b => b.getAttribute('onclick') === "switchTab('groups', this)");
+      if (groupsBtn) switchTab('groups', groupsBtn);
+    }
+    // Original job is untouched
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    initTextChips();
+    addQueueItem('text');
+    addGroupQueueItem('text');
+    await initDB();
+    renderScheduledJobs();
+    startSchedulerPoller();
+  });
 
   function addTextChip(raw) {
     if (!raw || !raw.trim()) return;
