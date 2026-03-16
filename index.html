@@ -120,8 +120,8 @@
           <option value="ZA">🇿🇦 South Africa (+27)</option>
           <option value="__custom__">✏️ Other (type manually)…</option>
         </select>
-        <input id="cfg-country-custom" type="text" placeholder="e.g. PT, NG, SG" maxlength="3" class="hidden w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm mt-2"/>
-        <p class="text-xs text-gray-400 mt-1">2-letter ISO code (e.g. IL, US, GB) · Used to auto-complete local numbers</p>
+        <input id="cfg-country-custom" type="text" placeholder="e.g. 972, 44, 1, 55" maxlength="5" class="hidden w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm mt-2"/>
+        <p class="text-xs text-gray-400 mt-1">Used to auto-complete local numbers (e.g. 0501234567 → 972501234567)</p>
       </div>
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">Delay Between Bulk Messages <span class="text-gray-400 font-normal">(random range, per message)</span></label>
@@ -1302,12 +1302,24 @@
   // ── PHONE VALIDATION (libphonenumber-js) ──────────────────────────────────
   function validatePhone(raw) {
     if (!raw || !raw.trim()) return null;
-    const defaultCountry = getCfg().country || 'IL';
+    const country = getCfg().country || 'IL';
+    const input = raw.trim();
     try {
-      const phone = window.libphonenumber.parsePhoneNumber(raw.trim(), defaultCountry);
-      if (phone && phone.isValid()) {
-        return phone.number.replace('+', ''); // E.164 without leading +
+      // Numeric prefix mode (e.g. "972"): prepend to local numbers directly
+      if (/^\d+$/.test(country)) {
+        let target = input;
+        if (!target.startsWith('+') && !target.startsWith(country)) {
+          target = '+' + country + target.replace(/^0+/, '');
+        } else if (!target.startsWith('+')) {
+          target = '+' + target;
+        }
+        const phone = window.libphonenumber.parsePhoneNumber(target);
+        if (phone && phone.isValid()) return phone.number.replace('+', '');
+        return null;
       }
+      // ISO country code mode (e.g. "IL")
+      const phone = window.libphonenumber.parsePhoneNumber(input, country);
+      if (phone && phone.isValid()) return phone.number.replace('+', '');
       return null;
     } catch (e) {
       return null;
