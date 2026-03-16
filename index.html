@@ -1746,6 +1746,9 @@
     btn.classList.add('active');
     btn.classList.remove('text-gray-600');
     clearResponse();
+    // Reset scroll to top
+    const scrollArea = document.querySelector('main > .overflow-y-auto');
+    if (scrollArea) scrollArea.scrollTop = 0;
     // Hide the response panel for tabs that don't make direct API calls
     const noResponsePanel = ['scheduled', 'settings'];
     const panel = document.querySelector('main > .border-t');
