@@ -50,6 +50,22 @@ A browser-based WhatsApp management interface built on top of [Evolution API v2]
 ### Bulk Sending
 - Send to multiple recipients or groups with a **randomized delay** between messages (configurable min/max seconds) to simulate human sending behavior
 
+### Scheduled Sending
+Schedule any Compose or Group Broadcast job to send automatically at a future time. The browser tab must remain open.
+
+| Action | Description |
+|--------|-------------|
+| **Schedule** | Pick a future date/time — job queued and sent automatically |
+| **Cancel & Edit** | Cancels the pending job and loads it back into the tab for full editing (recipients, messages, time) |
+| **Duplicate** | Loads job content into the tab as a new draft — original untouched, schedule cleared for a fresh time |
+| **Resend** | Clone a completed or cancelled job with a new send time (no editing) |
+| **Restore** | Re-activate a cancelled job (only if scheduled time hasn't passed) |
+| **Cancel** | Cancel a pending job without editing |
+
+- Jobs are stored in **IndexedDB** (survives page refresh, handles large payloads)
+- Each card shows an inline message preview (icon + truncated content) collapsed by default
+- Scheduler polls every 30 seconds; jobs execute in order with the configured random delay between messages
+
 ### Phone Number Handling
 - Validates phone numbers using [libphonenumber-js](https://github.com/nicolo-ribaudo/libphonenumber-js)
 - Auto-normalizes local numbers to E.164 format (e.g. `0501234567` → `972501234567` for IL)
