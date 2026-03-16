@@ -12,8 +12,8 @@
     .sidebar-btn { transition: all .15s ease; }
     .sidebar-btn.active { background: #25D366; color: white; }
     .sidebar-btn:not(.active):hover { background: #f0fdf4; color: #15803d; }
-    .tab-panel { display: none; }
-    .tab-panel.active { display: block; }
+    .tab-panel { display: none !important; }
+    .tab-panel.active { display: block !important; }
     textarea, input, select { transition: border-color .15s; }
     textarea:focus, input:focus, select:focus { outline: none; border-color: #25D366; box-shadow: 0 0 0 3px rgba(37,211,102,.15); }
     .chip-box input:focus { border-color: transparent !important; box-shadow: none !important; }
@@ -1742,9 +1742,15 @@
   }
 
   function switchTab(name, btn) {
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    // Explicitly hide ALL panels via inline style (bypasses any CSS specificity issues)
+    document.querySelectorAll('.tab-panel').forEach(p => {
+      p.classList.remove('active');
+      p.style.display = 'none';
+    });
     document.querySelectorAll('.sidebar-btn').forEach(b => { b.classList.remove('active'); b.classList.add('text-gray-600'); });
-    document.getElementById(`tab-${name}`).classList.add('active');
+    const target = document.getElementById(`tab-${name}`);
+    target.classList.add('active');
+    target.style.display = 'block';
     btn.classList.add('active');
     btn.classList.remove('text-gray-600');
     clearResponse();
@@ -1753,8 +1759,8 @@
     if (scrollArea) scrollArea.scrollTop = 0;
     // Hide the response panel for tabs that don't make direct API calls
     const noResponsePanel = ['scheduled', 'settings'];
-    const panel = document.querySelector('main > div.border-t');
-    if (panel) panel.style.display = noResponsePanel.includes(name) ? 'none' : '';
+    const respPanel = document.querySelector('main > div.border-t');
+    if (respPanel) respPanel.style.display = noResponsePanel.includes(name) ? 'none' : '';
   }
 
   function toggleDelay(prefix) {
