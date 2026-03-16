@@ -278,7 +278,16 @@
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1.5">Media URL <span class="text-red-400">*</span></label>
-            <input id="media-url" type="text" placeholder="https://example.com/image.jpg" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+            <input id="media-url" type="text" placeholder="https://example.com/image.jpg" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm" oninput="mediaFileBase64=null;document.getElementById('media-file-badge').classList.add('hidden')"/>
+            <div class="flex items-center gap-2 mt-2">
+              <span class="text-xs text-gray-400">or</span>
+              <label class="cursor-pointer inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                Choose file from computer
+                <input type="file" id="media-file" class="hidden" onchange="onMediaFileSelected(this)"/>
+              </label>
+              <span id="media-file-badge" class="hidden text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full"></span>
+            </div>
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1.5">MIME Type <span class="text-red-400">*</span></label>
@@ -310,7 +319,16 @@
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1.5">Audio URL <span class="text-red-400">*</span></label>
-            <input id="audio-url" type="text" placeholder="https://example.com/audio.mp3" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm"/>
+            <input id="audio-url" type="text" placeholder="https://example.com/audio.mp3" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm" oninput="audioFileBase64=null;document.getElementById('audio-file-badge').classList.add('hidden')"/>
+            <div class="flex items-center gap-2 mt-2">
+              <span class="text-xs text-gray-400">or</span>
+              <label class="cursor-pointer inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                Choose file from computer
+                <input type="file" id="audio-file" class="hidden" accept="audio/*" onchange="onAudioFileSelected(this)"/>
+              </label>
+              <span id="audio-file-badge" class="hidden text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full"></span>
+            </div>
             <p class="text-xs text-gray-400 mt-1">Supported: mp3, ogg, m4a, wav</p>
           </div>
           <div class="flex items-center gap-2">
@@ -1808,6 +1826,43 @@
     sendBtn.disabled = false;
   }
 
+  // ── FILE → BASE64 HELPERS ─────────────────────────────────────────────────
+  let mediaFileBase64 = null;
+  let audioFileBase64 = null;
+
+  function readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function onMediaFileSelected(input) {
+    const file = input.files[0];
+    if (!file) return;
+    mediaFileBase64 = await readFileAsBase64(file);
+    document.getElementById('media-url').value = '';
+    document.getElementById('media-url').placeholder = file.name;
+    if (file.type) document.getElementById('media-mimetype').value = file.type;
+    if (!document.getElementById('media-filename').value) document.getElementById('media-filename').value = file.name;
+    const badge = document.getElementById('media-file-badge');
+    badge.textContent = file.name;
+    badge.classList.remove('hidden');
+  }
+
+  async function onAudioFileSelected(input) {
+    const file = input.files[0];
+    if (!file) return;
+    audioFileBase64 = await readFileAsBase64(file);
+    document.getElementById('audio-url').value = '';
+    document.getElementById('audio-url').placeholder = file.name;
+    const badge = document.getElementById('audio-file-badge');
+    badge.textContent = file.name;
+    badge.classList.remove('hidden');
+  }
+
   // ── SEND MEDIA ────────────────────────────────────────────────────────────
   function updateMimetype() {
     const type = document.getElementById('media-type').value;
@@ -1820,11 +1875,12 @@
     const number = validatePhone(rawNum);
     if (!number) return showFieldError(document.getElementById('media-number'), rawNum ? `"${rawNum}" is not a valid number` : 'Number is required');
     const mediatype = document.getElementById('media-type').value;
-    const media = document.getElementById('media-url').value.trim();
+    const media = mediaFileBase64 || document.getElementById('media-url').value.trim();
     const mimetype = document.getElementById('media-mimetype').value.trim();
     const fileName = document.getElementById('media-filename').value.trim();
     const caption = document.getElementById('media-caption').value.trim();
-    if (!media || !mimetype) return alert('URL and MIME type are required.');
+    if (!media) return alert('Provide a URL or choose a file.');
+    if (!mimetype) return alert('MIME type is required.');
     const body = { number, mediatype, media, mimetype };
     if (fileName) body.fileName = fileName;
     if (caption) body.caption = caption;
@@ -1836,9 +1892,9 @@
     const rawNum = document.getElementById('audio-number').value.trim();
     const number = validatePhone(rawNum);
     if (!number) return showFieldError(document.getElementById('audio-number'), rawNum ? `"${rawNum}" is not a valid number` : 'Number is required');
-    const audio = document.getElementById('audio-url').value.trim();
+    const audio = audioFileBase64 || document.getElementById('audio-url').value.trim();
     const encoding = document.getElementById('audio-encoding').checked;
-    if (!audio) return alert('Audio URL is required.');
+    if (!audio) return alert('Provide a URL or choose an audio file.');
     await apiCall(`/message/sendWhatsAppAudio/${getCfg().instance}`, { number, audio, encoding });
   }
 
