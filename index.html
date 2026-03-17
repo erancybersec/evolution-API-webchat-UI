@@ -118,42 +118,6 @@
           <button onclick="toggleApiKeyVisibility()" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
             <svg id="eye-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
           </button>
-
-          <!-- Invite Link -->
-          <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-3">
-            <h3 class="text-sm font-semibold text-gray-800">Invite Link</h3>
-            <div class="flex gap-2">
-              <button onclick="getInviteCode()" class="btn-send text-white text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-1.5">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
-                Get Link
-              </button>
-              <button onclick="revokeInviteCode()" class="border border-red-300 text-red-500 text-xs font-semibold px-4 py-2 rounded-lg hover:bg-red-50 transition-colors flex items-center gap-1.5">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
-                Revoke
-              </button>
-            </div>
-            <div id="sg-invite-display" class="hidden bg-gray-50 rounded-lg px-3 py-2 flex items-center justify-between gap-2">
-              <span id="sg-invite-url" class="text-xs text-green-700 font-mono break-all"></span>
-              <button onclick="copyInviteLink()" class="shrink-0 text-xs text-gray-500 hover:text-gray-700 border border-gray-300 px-2 py-1 rounded">Copy</button>
-            </div>
-          </div>
-
-          <!-- Leave Group -->
-          <div class="bg-white rounded-xl border border-red-100 shadow-sm p-5">
-            <div class="flex items-center justify-between">
-              <div>
-                <h3 class="text-sm font-semibold text-red-600">Leave Group</h3>
-                <p class="text-xs text-gray-500 mt-0.5">Remove this account from the group.</p>
-              </div>
-              <button onclick="leaveGroup()" class="border border-red-300 text-red-500 font-semibold text-sm px-4 py-2 rounded-lg hover:bg-red-50 transition-colors flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                Leave Group
-              </button>
-            </div>
-          </div>
-
-        </div>
-
         </div>
       </div>
       <div>
@@ -1742,6 +1706,7 @@
       const res = await fetch(url, { headers: { 'apikey': cfg.apikey } });
       const data = await res.json();
       allGroups = Array.isArray(data) ? data : [];
+      filteredGroups = [...allGroups];
       renderGroupList(allGroups);
       document.getElementById('groups-count').textContent = `${allGroups.length} groups`;
       const badge = document.getElementById('resp-badge');
@@ -1778,10 +1743,13 @@
     }).join('');
   }
 
+  let filteredGroups = [];
+
   function filterGroups() {
     const q = document.getElementById('group-search').value.toLowerCase();
-    const filtered = allGroups.filter(g => (g.subject || '').toLowerCase().includes(q));
-    renderGroupList(filtered);
+    filteredGroups = allGroups.filter(g => (g.subject || '').toLowerCase().includes(q));
+    document.getElementById('groups-count').textContent = `${filteredGroups.length} groups`;
+    renderGroupList(filteredGroups);
   }
 
   function toggleGroup(jid, name, checked) {
@@ -1791,14 +1759,16 @@
   }
 
   function selectAllGroups() {
-    allGroups.forEach(g => { selectedGroups[g.id] = g.subject || g.id; });
-    renderGroupList(allGroups);
+    const list = filteredGroups.length > 0 || document.getElementById('group-search').value ? filteredGroups : allGroups;
+    list.forEach(g => { selectedGroups[g.id] = g.subject || g.id; });
+    renderGroupList(list);
     renderSelectedChips();
   }
 
   function clearGroupSelection() {
     selectedGroups = {};
-    renderGroupList(allGroups);
+    const list = filteredGroups.length > 0 || document.getElementById('group-search').value ? filteredGroups : allGroups;
+    renderGroupList(list);
     renderSelectedChips();
   }
 
