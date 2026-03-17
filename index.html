@@ -36,6 +36,12 @@
     .btn-send:disabled { background:#9ca3af !important; cursor:not-allowed; }
     .field-error { border-color: #ef4444 !important; box-shadow: 0 0 0 3px rgba(239,68,68,.12) !important; }
     .field-error-msg { color: #dc2626; font-size: 11px; margin-top: 4px; display: block; }
+    #instance-picker-dropdown .inst-opt {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 12px; cursor: pointer; font-size: 13px; white-space: nowrap; color: #374151;
+    }
+    #instance-picker-dropdown .inst-opt:hover { background: #f3f4f6; }
+    #instance-picker-dropdown .inst-opt.active { font-weight: 600; color: #16a34a; }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -56,8 +62,17 @@
       <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
       Connected
     </div>
-    <div class="text-xs text-gray-400">
-      Instance: <span id="header-instance" class="font-semibold text-gray-600"></span>
+    <div class="text-xs text-gray-400 relative">
+      Instance:
+      <button id="header-instance-btn" onclick="openInstancePicker(event)"
+              class="font-semibold text-gray-600 hover:text-green-600 inline-flex items-center gap-1 focus:outline-none cursor-pointer"
+              title="Click to switch instance">
+        <span id="header-instance"></span>
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+      </button>
+      <div id="instance-picker-dropdown"
+           class="hidden absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[180px] py-1">
+      </div>
     </div>
     <button onclick="openConfig()" class="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 border border-gray-200 hover:border-gray-300 px-3 py-1.5 rounded-lg transition-colors" title="Connection Settings">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3" stroke-width="2"/></svg>
@@ -103,6 +118,42 @@
           <button onclick="toggleApiKeyVisibility()" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
             <svg id="eye-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
           </button>
+
+          <!-- Invite Link -->
+          <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-3">
+            <h3 class="text-sm font-semibold text-gray-800">Invite Link</h3>
+            <div class="flex gap-2">
+              <button onclick="getInviteCode()" class="btn-send text-white text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                Get Link
+              </button>
+              <button onclick="revokeInviteCode()" class="border border-red-300 text-red-500 text-xs font-semibold px-4 py-2 rounded-lg hover:bg-red-50 transition-colors flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                Revoke
+              </button>
+            </div>
+            <div id="sg-invite-display" class="hidden bg-gray-50 rounded-lg px-3 py-2 flex items-center justify-between gap-2">
+              <span id="sg-invite-url" class="text-xs text-green-700 font-mono break-all"></span>
+              <button onclick="copyInviteLink()" class="shrink-0 text-xs text-gray-500 hover:text-gray-700 border border-gray-300 px-2 py-1 rounded">Copy</button>
+            </div>
+          </div>
+
+          <!-- Leave Group -->
+          <div class="bg-white rounded-xl border border-red-100 shadow-sm p-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-sm font-semibold text-red-600">Leave Group</h3>
+                <p class="text-xs text-gray-500 mt-0.5">Remove this account from the group.</p>
+              </div>
+              <button onclick="leaveGroup()" class="border border-red-300 text-red-500 font-semibold text-sm px-4 py-2 rounded-lg hover:bg-red-50 transition-colors flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                Leave Group
+              </button>
+            </div>
+          </div>
+
+        </div>
+
         </div>
       </div>
       <div>
@@ -694,7 +745,7 @@
 
         <!-- BROWSE & SEND -->
         <div id="gtab-browse" class="gtab-panel">
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
 
             <!-- Group list -->
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex flex-col gap-3">
@@ -713,7 +764,7 @@
                   <button onclick="clearGroupSelection()" class="text-gray-400 hover:text-gray-600 font-medium">Clear</button>
                 </div>
               </div>
-              <div id="group-list" class="overflow-y-auto max-h-72 space-y-1 pr-1">
+              <div id="group-list" class="overflow-y-auto max-h-[60vh] space-y-1 pr-1">
                 <p class="text-xs text-gray-400 text-center py-8">Click "Load Groups" to fetch your groups</p>
               </div>
             </div>
@@ -730,6 +781,12 @@
                   <p class="text-xs text-gray-400 self-center">No groups selected</p>
                 </div>
               </div>
+
+              <!-- Manage selected shortcut -->
+              <button onclick="manageSelectedGroups()" class="w-full border border-green-300 text-green-700 bg-green-50 hover:bg-green-100 text-sm font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3" stroke-width="2"/></svg>
+                Manage Selected Groups
+              </button>
 
               <!-- Group broadcast queue -->
               <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex flex-col gap-4">
@@ -797,53 +854,97 @@
         <!-- MANAGE GROUP -->
         <div id="gtab-manage" class="glab-panel hidden max-w-2xl space-y-5">
 
-          <!-- Group picker -->
-          <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-3">
-            <h3 class="text-sm font-semibold text-gray-800">Select Group to Manage</h3>
-            <div class="flex gap-2">
-              <input id="mg-jid" type="text" placeholder="1234567890-1234567890@g.us" class="flex-1 border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm font-mono"/>
-              <button onclick="loadGroupInfo()" class="btn-send text-white text-sm font-semibold px-4 py-2.5 rounded-lg flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                Load
+
+          <!-- BULK GROUP ACTIONS -->
+          <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-sm font-semibold text-gray-800">Bulk Group Actions</h3>
+                <p class="text-xs text-gray-400 mt-0.5">Select multiple groups and apply an action to all at once</p>
+              </div>
+              <button onclick="refreshBulkGroupList()" class="btn-send text-white text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                Refresh Groups
               </button>
             </div>
-            <p class="text-xs text-gray-400">Or pick from Browse tab — JID is auto-filled when you click "Manage" on a group</p>
-            <!-- Group info preview -->
-            <div id="mg-preview" class="hidden bg-gray-50 rounded-lg p-3 flex items-center gap-3">
-              <div id="mg-avatar" class="w-10 h-10 rounded-full bg-green-200 flex items-center justify-center text-green-800 font-bold text-sm shrink-0">?</div>
-              <div class="flex-1 min-w-0">
-                <p id="mg-name" class="font-semibold text-gray-800 text-sm truncate"></p>
-                <p id="mg-desc-display" class="text-xs text-gray-500 truncate"></p>
-                <p id="mg-meta" class="text-xs text-gray-400"></p>
+
+            <!-- Group multi-select list -->
+            <div>
+              <div class="flex items-center justify-between text-xs text-gray-500 mb-1.5">
+                <span id="bulk-count">0 selected</span>
+                <div class="flex gap-3">
+                  <button onclick="bulkSelectAll()" class="text-green-600 hover:text-green-700 font-medium">Select All</button>
+                  <button onclick="bulkClearAll()" class="text-gray-400 hover:text-gray-600 font-medium">Clear</button>
+                </div>
               </div>
+              <div id="bulk-group-list" class="overflow-y-auto max-h-48 space-y-1 border border-gray-200 rounded-lg p-2">
+                <p class="text-xs text-gray-400 text-center py-4">Go to Browse &amp; Send tab → select groups → click "Manage Selected Groups", or hover a group and click the gear icon.</p>
+              </div>
+            </div>
+
+            <!-- Action: Set Picture -->
+            <div class="border border-gray-100 rounded-lg p-3 space-y-2">
+              <p class="text-xs font-semibold text-gray-700">Set Group Picture</p>
+              <div class="flex gap-2">
+                <input id="bulk-pic-url" type="text" placeholder="https://example.com/img.jpg" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
+                <button onclick="pickImageFile('bulk-pic-url')" title="Upload from computer" class="border border-gray-300 text-gray-500 hover:text-green-600 hover:border-green-400 text-xs font-medium px-2.5 py-2 rounded-lg transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                </button>
+                <button onclick="bulkSetPicture()" class="btn-send text-white text-xs font-semibold px-3 py-2 rounded-lg whitespace-nowrap">Apply to Selected</button>
+              </div>
+            </div>
+
+            <!-- Action: Set Name -->
+            <div class="border border-gray-100 rounded-lg p-3 space-y-2">
+              <p class="text-xs font-semibold text-gray-700">Set Group Name</p>
+              <div class="flex gap-2">
+                <input id="bulk-name" type="text" placeholder="New group name" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
+                <button onclick="bulkSetSubject()" class="btn-send text-white text-xs font-semibold px-3 py-2 rounded-lg whitespace-nowrap">Apply to Selected</button>
+              </div>
+            </div>
+
+            <!-- Action: Set Description -->
+            <div class="border border-gray-100 rounded-lg p-3 space-y-2">
+              <p class="text-xs font-semibold text-gray-700">Set Description</p>
+              <div class="flex gap-2 items-start">
+                <textarea id="bulk-desc" rows="2" placeholder="New description..." class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"></textarea>
+                <button onclick="bulkSetDescription()" class="btn-send text-white text-xs font-semibold px-3 py-2 rounded-lg whitespace-nowrap">Apply to Selected</button>
+              </div>
+            </div>
+
+            <!-- Action: Settings -->
+            <div class="border border-gray-100 rounded-lg p-3 space-y-2">
+              <p class="text-xs font-semibold text-gray-700">Group Settings</p>
+              <div class="flex gap-2 flex-wrap">
+                <button onclick="bulkSetting('announcement')" class="flex-1 border border-gray-300 text-gray-600 text-xs font-medium py-2 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap">Admins Only (send)</button>
+                <button onclick="bulkSetting('not_announcement')" class="flex-1 border border-gray-300 text-gray-600 text-xs font-medium py-2 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap">All Members (send)</button>
+                <button onclick="bulkSetting('locked')" class="flex-1 border border-gray-300 text-gray-600 text-xs font-medium py-2 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap">Admins Edit Info</button>
+                <button onclick="bulkSetting('unlocked')" class="flex-1 border border-gray-300 text-gray-600 text-xs font-medium py-2 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap">All Edit Info</button>
+              </div>
+              <p class="text-xs font-semibold text-gray-700 mt-2">Disappearing Messages</p>
+              <div class="grid grid-cols-4 gap-2">
+                <button onclick="bulkEphemeral(0)"       class="border border-gray-300 text-gray-600 text-xs font-medium py-2 rounded-lg hover:bg-gray-50 transition-colors">Off</button>
+                <button onclick="bulkEphemeral(86400)"   class="border border-gray-300 text-gray-600 text-xs font-medium py-2 rounded-lg hover:bg-gray-50 transition-colors">24h</button>
+                <button onclick="bulkEphemeral(604800)"  class="border border-gray-300 text-gray-600 text-xs font-medium py-2 rounded-lg hover:bg-gray-50 transition-colors">7d</button>
+                <button onclick="bulkEphemeral(7776000)" class="border border-gray-300 text-gray-600 text-xs font-medium py-2 rounded-lg hover:bg-gray-50 transition-colors">90d</button>
+              </div>
+            </div>
+
+            <!-- Bulk progress -->
+            <div id="bulk-progress" class="hidden text-xs text-gray-500 space-y-1">
+              <div class="flex items-center justify-between">
+                <span id="bulk-progress-label">Processing…</span>
+                <span id="bulk-progress-count"></span>
+              </div>
+              <div class="w-full bg-gray-100 rounded-full h-1.5">
+                <div id="bulk-progress-bar" class="bg-green-500 h-1.5 rounded-full transition-all" style="width:0%"></div>
+              </div>
+              <div id="bulk-results" class="max-h-28 overflow-y-auto space-y-0.5 mt-1"></div>
             </div>
           </div>
 
-          <!-- Update name / description -->
-          <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-4">
-            <h3 class="text-sm font-semibold text-gray-800">Group Info</h3>
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1.5">New Name</label>
-              <div class="flex gap-2">
-                <input id="mg-new-name" type="text" placeholder="New group name" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
-                <button onclick="updateGroupSubject()" class="btn-send text-white text-xs font-semibold px-3 py-2 rounded-lg">Update</button>
-              </div>
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1.5">New Description</label>
-              <div class="flex gap-2 items-start">
-                <textarea id="mg-new-desc" rows="2" placeholder="New description..." class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"></textarea>
-                <button onclick="updateGroupDescription()" class="btn-send text-white text-xs font-semibold px-3 py-2 rounded-lg mt-0">Update</button>
-              </div>
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1.5">Group Picture URL</label>
-              <div class="flex gap-2">
-                <input id="mg-pic-url" type="text" placeholder="https://example.com/img.jpg" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
-                <button onclick="updateGroupPicture()" class="btn-send text-white text-xs font-semibold px-3 py-2 rounded-lg">Set</button>
-              </div>
-            </div>
-          </div>
+        <!-- Single-group-only panel (shown when exactly 1 group is selected) -->
+        <div id="single-group-panel" class="hidden space-y-5">
 
           <!-- Participants -->
           <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-3">
@@ -854,10 +955,10 @@
                 Load Members
               </button>
             </div>
-            <div id="mg-participants-list" class="max-h-48 overflow-y-auto space-y-1 hidden"></div>
+            <div id="sg-participants-list" class="max-h-48 overflow-y-auto space-y-1 hidden"></div>
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1.5">Numbers <span class="text-gray-400 font-normal">(one per line)</span></label>
-              <textarea id="mg-part-numbers" rows="3" placeholder="972501234567&#10;972509876543" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none font-mono"></textarea>
+              <textarea id="sg-part-numbers" rows="3" placeholder="972501234567&#10;972509876543" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none font-mono"></textarea>
             </div>
             <div class="grid grid-cols-2 gap-2">
               <button onclick="updateParticipants('add')" class="btn-send text-white text-xs font-semibold py-2 rounded-lg flex items-center justify-center gap-1">
@@ -875,35 +976,7 @@
             </div>
           </div>
 
-          <!-- Settings -->
-          <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-3">
-            <h3 class="text-sm font-semibold text-gray-800">Group Settings</h3>
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1.5">Who can send messages</label>
-              <div class="flex gap-2">
-                <button onclick="updateGroupSetting('announcement')" class="flex-1 border border-gray-300 text-gray-600 text-xs font-medium py-2 rounded-lg hover:bg-gray-50 transition-colors">Admins Only</button>
-                <button onclick="updateGroupSetting('not_announcement')" class="flex-1 border border-gray-300 text-gray-600 text-xs font-medium py-2 rounded-lg hover:bg-gray-50 transition-colors">All Members</button>
-              </div>
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1.5">Who can edit group info</label>
-              <div class="flex gap-2">
-                <button onclick="updateGroupSetting('locked')" class="flex-1 border border-gray-300 text-gray-600 text-xs font-medium py-2 rounded-lg hover:bg-gray-50 transition-colors">Admins Only</button>
-                <button onclick="updateGroupSetting('unlocked')" class="flex-1 border border-gray-300 text-gray-600 text-xs font-medium py-2 rounded-lg hover:bg-gray-50 transition-colors">All Members</button>
-              </div>
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1.5">Disappearing Messages</label>
-              <div class="grid grid-cols-4 gap-2">
-                <button onclick="setEphemeral(0)"      class="border border-gray-300 text-gray-600 text-xs font-medium py-2 rounded-lg hover:bg-gray-50 transition-colors">Off</button>
-                <button onclick="setEphemeral(86400)"  class="border border-gray-300 text-gray-600 text-xs font-medium py-2 rounded-lg hover:bg-gray-50 transition-colors">24h</button>
-                <button onclick="setEphemeral(604800)" class="border border-gray-300 text-gray-600 text-xs font-medium py-2 rounded-lg hover:bg-gray-50 transition-colors">7d</button>
-                <button onclick="setEphemeral(7776000)"class="border border-gray-300 text-gray-600 text-xs font-medium py-2 rounded-lg hover:bg-gray-50 transition-colors">90d</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Invite link -->
+          <!-- Invite Link -->
           <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-3">
             <h3 class="text-sm font-semibold text-gray-800">Invite Link</h3>
             <div class="flex gap-2">
@@ -916,13 +989,13 @@
                 Revoke
               </button>
             </div>
-            <div id="mg-invite-display" class="hidden bg-gray-50 rounded-lg px-3 py-2 flex items-center justify-between gap-2">
-              <span id="mg-invite-url" class="text-xs text-green-700 font-mono break-all"></span>
+            <div id="sg-invite-display" class="hidden bg-gray-50 rounded-lg px-3 py-2 flex items-center justify-between gap-2">
+              <span id="sg-invite-url" class="text-xs text-green-700 font-mono break-all"></span>
               <button onclick="copyInviteLink()" class="shrink-0 text-xs text-gray-500 hover:text-gray-700 border border-gray-300 px-2 py-1 rounded">Copy</button>
             </div>
           </div>
 
-          <!-- Leave group -->
+          <!-- Leave Group -->
           <div class="bg-white rounded-xl border border-red-100 shadow-sm p-5">
             <div class="flex items-center justify-between">
               <div>
@@ -935,6 +1008,8 @@
               </button>
             </div>
           </div>
+
+        </div>
         </div>
       </div>
 
@@ -1276,6 +1351,50 @@
     }
   }
 
+  // Instance picker — click header instance name to switch
+  async function openInstancePicker(e) {
+    e.stopPropagation();
+    const dropdown = document.getElementById('instance-picker-dropdown');
+    if (!dropdown.classList.contains('hidden')) {
+      dropdown.classList.add('hidden');
+      return;
+    }
+    const cfg = getCfg();
+    dropdown.innerHTML = '<div class="px-3 py-2 text-xs text-gray-400">Loading\u2026</div>';
+    dropdown.classList.remove('hidden');
+    try {
+      const res = await fetch(`${cfg.base}/instance/fetchInstances`, { headers: { apikey: cfg.apikey } });
+      const data = await res.json();
+      const instances = Array.isArray(data) ? data : [];
+      if (!instances.length) {
+        dropdown.innerHTML = '<div class="px-3 py-2 text-xs text-gray-400">No instances found</div>';
+        return;
+      }
+      dropdown.innerHTML = instances.map(inst => {
+        const active = inst.name === cfg.instance;
+        const dot = inst.connectionStatus === 'open'
+          ? '<span class="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></span>'
+          : '<span class="w-2 h-2 bg-gray-300 rounded-full flex-shrink-0"></span>';
+        const safeName = inst.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        return `<div class="inst-opt${active ? ' active' : ''}" onclick="switchInstance('${safeName}')">${dot}${inst.name}${active ? ' \u2713' : ''}</div>`;
+      }).join('');
+    } catch (err) {
+      dropdown.innerHTML = `<div class="px-3 py-2 text-xs text-red-500">Failed to load instances</div>`;
+    }
+  }
+
+  function switchInstance(name) {
+    localStorage.setItem('wa_instance', name);
+    document.getElementById('instance-picker-dropdown').classList.add('hidden');
+    applyConfig();
+  }
+
+  // Close instance picker when clicking outside
+  document.addEventListener('click', () => {
+    const dd = document.getElementById('instance-picker-dropdown');
+    if (dd) dd.classList.add('hidden');
+  });
+
   // Close modal on backdrop click
   document.getElementById('config-modal').addEventListener('click', function(e) {
     if (e.target === this) closeConfig();
@@ -1357,6 +1476,246 @@
   });
 
   // ── GROUPS ────────────────────────────────────────────────────────────────
+
+  // ── Bulk Group Actions ──────────────────────────────────────────────────────
+  let bulkSelected = new Set(); // set of JIDs
+
+  function refreshBulkGroupList() {
+    const list = document.getElementById('bulk-group-list');
+    if (!bulkSelected.size) {
+      list.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">Go to Browse &amp; Send tab → select groups → click "Manage Selected Groups", or hover a group and click the gear icon.</p>';
+      updateBulkCount();
+      return;
+    }
+    const groups = allGroups.filter(g => bulkSelected.has(g.id));
+    if (!groups.length) {
+      list.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">Groups not loaded yet. Go to Browse tab and click Load Groups first.</p>';
+      updateBulkCount();
+      return;
+    }
+    list.innerHTML = groups.map(g => {
+      const jid = g.id;
+      const name = g.subject || jid;
+      const initials = name.slice(0, 2).toUpperCase();
+      const checked = bulkSelected.has(jid) ? 'checked' : '';
+      return `<label class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer">
+        <input type="checkbox" class="bulk-cb w-4 h-4 accent-green-500 shrink-0" value="${jid}" ${checked} onchange="bulkToggle(this)"/>
+        <div class="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold text-xs shrink-0">${initials}</div>
+        <div class="min-w-0">
+          <p class="text-xs font-medium text-gray-800 truncate">${name}</p>
+          <p class="text-xs text-gray-400">${(g.participants || []).length || g.size || 0} members</p>
+        </div>
+      </label>`;
+    }).join('');
+    updateBulkCount();
+  }
+
+  function bulkToggle(cb) {
+    if (cb.checked) bulkSelected.add(cb.value);
+    else bulkSelected.delete(cb.value);
+    updateBulkCount();
+  }
+
+  function bulkSelectAll() {
+    allGroups.forEach(g => bulkSelected.add(g.id));
+    refreshBulkGroupList();
+  }
+
+  function bulkClearAll() {
+    bulkSelected.clear();
+    refreshBulkGroupList();
+  }
+
+  function updateBulkCount() {
+    const n = bulkSelected.size;
+    document.getElementById('bulk-count').textContent = `${n} selected`;
+    const panel = document.getElementById('single-group-panel');
+    if (panel) panel.classList.toggle('hidden', n !== 1);
+  }
+
+
+  function getSingleJid() {
+    const jids = [...bulkSelected];
+    return jids.length === 1 ? jids[0] : null;
+  }
+
+  async function fetchGroupParticipants() {
+    const jid = getSingleJid(); if (!jid) return;
+    const cfg = getCfg();
+    const url = `${cfg.base}/group/findGroupInfos/${cfg.instance}?groupJid=${encodeURIComponent(jid)}`;
+    setResponse('⏳ Loading members...', null);
+    try {
+      const res = await fetch(url, { headers: { 'apikey': cfg.apikey } });
+      const data = await res.json();
+      setResponse(JSON.stringify(data, null, 2), res.ok);
+      const badge = document.getElementById('resp-badge');
+      badge.className = res.ok ? 'pill' : 'pill error';
+      badge.textContent = res.ok ? `${res.status} OK` : `${res.status} Error`;
+      const list = document.getElementById('sg-participants-list');
+      if (data && data.participants) {
+        list.classList.remove('hidden');
+        list.innerHTML = data.participants.map(p => `
+          <div class="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-gray-50 text-xs">
+            <span class="font-mono text-gray-700">${p.id}</span>
+            <span class="px-2 py-0.5 rounded-full text-xs font-medium ${p.admin ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}">${p.admin || 'member'}</span>
+          </div>`).join('');
+      }
+    } catch (e) { setResponse(`Error: ${e.message}`, false); }
+  }
+
+  async function updateParticipants(action) {
+    const jid = getSingleJid(); if (!jid) return;
+    const partEl = document.getElementById('sg-part-numbers');
+    const { valid, invalid } = parsePhoneLines(partEl.value);
+    if (invalid.length) return showFieldError(partEl,
+      `Invalid numbers: ${invalid.slice(0, 3).join(', ')}${invalid.length > 3 ? ` +${invalid.length - 3} more` : ''} — use international format`);
+    if (!valid.length) return alert('Enter at least one number.');
+    clearFieldError(partEl);
+    await apiCall(`/group/updateParticipant/${getCfg().instance}?groupJid=${encodeURIComponent(jid)}`, { action, participants: valid });
+  }
+
+  async function getInviteCode() {
+    const jid = getSingleJid(); if (!jid) return;
+    const cfg = getCfg();
+    const url = `${cfg.base}/group/inviteCode/${cfg.instance}?groupJid=${encodeURIComponent(jid)}`;
+    document.getElementById('resp-endpoint').textContent = 'GET /group/inviteCode';
+    setResponse('⏳ Fetching invite link...', null);
+    try {
+      const res = await fetch(url, { headers: { 'apikey': cfg.apikey } });
+      const data = await res.json();
+      setResponse(JSON.stringify(data, null, 2), res.ok);
+      const badge = document.getElementById('resp-badge');
+      badge.className = res.ok ? 'pill' : 'pill error';
+      badge.textContent = res.ok ? `${res.status} OK` : `${res.status} Error`;
+      if (res.ok && (data.inviteUrl || data.inviteCode)) {
+        const link = data.inviteUrl || `https://chat.whatsapp.com/${data.inviteCode}`;
+        const disp = document.getElementById('sg-invite-display');
+        disp.classList.remove('hidden');
+        document.getElementById('sg-invite-url').textContent = link;
+        disp.dataset.url = link;
+      }
+    } catch (e) { setResponse(`Error: ${e.message}`, false); }
+  }
+
+  async function revokeInviteCode() {
+    const jid = getSingleJid(); if (!jid) return;
+    if (!confirm('Revoke the invite link? The old link will stop working.')) return;
+    await apiCall(`/group/revokeInviteCode/${getCfg().instance}?groupJid=${encodeURIComponent(jid)}`, {});
+    document.getElementById('sg-invite-display').classList.add('hidden');
+  }
+
+  function copyInviteLink() {
+    const disp = document.getElementById('sg-invite-display');
+    const url = disp.dataset.url;
+    if (url) {
+      navigator.clipboard.writeText(url);
+      const btn = disp.querySelector('button');
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+    }
+  }
+
+  async function leaveGroup() {
+    const jid = getSingleJid(); if (!jid) return;
+    if (!confirm('Leave this group? This cannot be undone.')) return;
+    await apiCall(`/group/leaveGroup/${getCfg().instance}?groupJid=${encodeURIComponent(jid)}`, null, 'DELETE');
+  }
+
+  async function bulkEphemeral(expiration) {
+    const jids = getBulkJids(); if (!jids) return;
+    await runBulkAction(jids, 'Setting disappearing messages…', (cfg, jid) =>
+      fetch(`${cfg.base}/group/toggleEphemeral/${cfg.instance}?groupJid=${encodeURIComponent(jid)}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': cfg.apikey },
+        body: JSON.stringify({ expiration })
+      })
+    );
+  }
+
+  function getBulkJids() {
+    const jids = [...bulkSelected];
+    if (!jids.length) { alert('Select at least one group.'); return null; }
+    return jids;
+  }
+
+  async function runBulkAction(jids, label, apiFn) {
+    const prog = document.getElementById('bulk-progress');
+    const bar = document.getElementById('bulk-progress-bar');
+    const lbl = document.getElementById('bulk-progress-label');
+    const cnt = document.getElementById('bulk-progress-count');
+    const results = document.getElementById('bulk-results');
+    prog.classList.remove('hidden');
+    results.innerHTML = '';
+    lbl.textContent = label;
+    const cfg = getCfg();
+    let done = 0;
+    for (const jid of jids) {
+      cnt.textContent = `${done}/ ${jids.length}`;
+      bar.style.width = `${Math.round(done / jids.length * 100)}%`;
+      const groupName = (allGroups.find(g => g.id === jid) || {}).subject || jid;
+      try {
+        const res = await apiFn(cfg, jid);
+        const ok = res.ok;
+        results.innerHTML += `<div class="flex items-center gap-1.5 ${ok ? 'text-green-600' : 'text-red-500'}">
+          <span>${ok ? '✓' : '✗'}</span><span class="truncate text-xs">${groupName}</span>
+        </div>`;
+      } catch (e) {
+        results.innerHTML += `<div class="flex items-center gap-1.5 text-red-500"><span>✗</span><span class="truncate text-xs">${groupName}: ${e.message}</span></div>`;
+      }
+      done++;
+      await new Promise(r => setTimeout(r, 300)); // small delay between requests
+    }
+    cnt.textContent = `${done}/${jids.length}`;
+    bar.style.width = '100%';
+    lbl.textContent = `Done — ${label}`;
+  }
+
+  async function bulkSetPicture() {
+    const jids = getBulkJids(); if (!jids) return;
+    const image = document.getElementById('bulk-pic-url').value.trim();
+    if (!image) return alert('Enter an image URL or upload a file.');
+    await runBulkAction(jids, 'Setting group picture…', (cfg, jid) =>
+      fetch(`${cfg.base}/group/updateGroupPicture/${cfg.instance}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': cfg.apikey },
+        body: JSON.stringify({ groupJid: jid, image })
+      })
+    );
+  }
+
+  async function bulkSetSubject() {
+    const jids = getBulkJids(); if (!jids) return;
+    const subject = document.getElementById('bulk-name').value.trim();
+    if (!subject) return alert('Enter a name.');
+    await runBulkAction(jids, 'Setting group name…', (cfg, jid) =>
+      fetch(`${cfg.base}/group/updateGroupSubject/${cfg.instance}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': cfg.apikey },
+        body: JSON.stringify({ groupJid: jid, subject })
+      })
+    );
+  }
+
+  async function bulkSetDescription() {
+    const jids = getBulkJids(); if (!jids) return;
+    const description = document.getElementById('bulk-desc').value.trim();
+    if (!description) return alert('Enter a description.');
+    await runBulkAction(jids, 'Setting description…', (cfg, jid) =>
+      fetch(`${cfg.base}/group/updateGroupDescription/${cfg.instance}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': cfg.apikey },
+        body: JSON.stringify({ groupJid: jid, description })
+      })
+    );
+  }
+
+  async function bulkSetting(action) {
+    const jids = getBulkJids(); if (!jids) return;
+    await runBulkAction(jids, `Applying setting "${action}"…`, (cfg, jid) =>
+      fetch(`${cfg.base}/group/setting/${cfg.instance}?groupJid=${encodeURIComponent(jid)}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': cfg.apikey },
+        body: JSON.stringify({ action })
+      })
+    );
+  }
+  // ── End Bulk Group Actions ──────────────────────────────────────────────────
+
   let allGroups = [];
   let selectedGroups = {}; // { jid: name }
 
@@ -1412,7 +1771,7 @@
           <p class="text-sm font-medium text-gray-800 truncate">${g.subject || 'Unnamed'}</p>
           <p class="text-xs text-gray-400">${g.size ? g.size + ' members' : ''} ${g.desc ? '· ' + g.desc.slice(0,30) : ''}</p>
         </div>
-        <button onclick="setManageGroup('${g.id}')" title="Manage" class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-green-600 transition-all p-1">
+        <button onclick="event.stopPropagation();setManageGroup('${g.id}')" title="Manage" class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-green-600 transition-all p-1">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3" stroke-width="2"/></svg>
         </button>
       </label>`;
@@ -1560,141 +1919,33 @@
     await apiCall(`/group/create/${getCfg().instance}`, body);
   }
 
-  function setManageGroup(jid) {
-    document.getElementById('mg-jid').value = jid;
+  function manageSelectedGroups() {
+    const jids = Object.keys(selectedGroups);
+    if (!jids.length) return alert('Select at least one group in the list first.');
+    bulkSelected = new Set(jids);
     switchGroupTab('manage');
-    loadGroupInfo();
+    refreshBulkGroupList();
+    setTimeout(() => document.getElementById('bulk-group-list').scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
   }
 
-  async function loadGroupInfo() {
-    const jid = document.getElementById('mg-jid').value.trim();
-    if (!jid) return alert('Enter a group JID first.');
-    const cfg = getCfg();
-    const url = `${cfg.base}/group/findGroupInfos/${cfg.instance}?groupJid=${encodeURIComponent(jid)}`;
-    document.getElementById('resp-endpoint').textContent = `GET /group/findGroupInfos`;
-    setResponse('⏳ Loading group info...', null);
-    try {
-      const res = await fetch(url, { headers: { 'apikey': cfg.apikey } });
-      const data = await res.json();
-      setResponse(JSON.stringify(data, null, 2), res.ok);
-      const badge = document.getElementById('resp-badge');
-      badge.className = res.ok ? 'pill' : 'pill error';
-      badge.textContent = res.ok ? `${res.status} OK` : `${res.status} Error`;
-      if (res.ok && data) {
-        const g = data;
-        document.getElementById('mg-preview').classList.remove('hidden');
-        document.getElementById('mg-avatar').textContent = (g.subject || '?').slice(0, 2).toUpperCase();
-        document.getElementById('mg-name').textContent = g.subject || 'Unnamed';
-        document.getElementById('mg-desc-display').textContent = g.desc || '';
-        document.getElementById('mg-meta').textContent = `${g.size || (g.participants || []).length} members · ${g.id}`;
-      }
-    } catch (e) { setResponse(`Error: ${e.message}`, false); }
+  function setManageGroup(jid) {
+    bulkSelected = new Set([jid]);
+    switchGroupTab('manage');
+    refreshBulkGroupList();
   }
 
-  function getGroupJid() {
-    const jid = document.getElementById('mg-jid').value.trim();
-    if (!jid) { alert('Load a group first (enter JID and click Load).'); return null; }
-    return jid;
-  }
-
-  async function updateGroupSubject() {
-    const jid = getGroupJid(); if (!jid) return;
-    const subject = document.getElementById('mg-new-name').value.trim();
-    if (!subject) return alert('Name is required.');
-    await apiCall(`/group/subject/${getCfg().instance}?groupJid=${encodeURIComponent(jid)}`, { subject }, 'PUT');
-  }
-
-  async function updateGroupDescription() {
-    const jid = getGroupJid(); if (!jid) return;
-    const description = document.getElementById('mg-new-desc').value.trim();
-    if (!description) return alert('Description is required.');
-    await apiCall(`/group/description/${getCfg().instance}?groupJid=${encodeURIComponent(jid)}`, { description }, 'PUT');
-  }
-
-  async function updateGroupPicture() {
-    const jid = getGroupJid(); if (!jid) return;
-    const image = document.getElementById('mg-pic-url').value.trim();
-    if (!image) return alert('Image URL is required.');
-    await apiCall(`/group/picture/${getCfg().instance}?groupJid=${encodeURIComponent(jid)}`, { image }, 'PUT');
-  }
-
-  async function fetchGroupParticipants() {
-    const jid = getGroupJid(); if (!jid) return;
-    const cfg = getCfg();
-    const url = `${cfg.base}/group/findGroupInfos/${cfg.instance}?groupJid=${encodeURIComponent(jid)}`;
-    const res = await fetch(url, { headers: { 'apikey': cfg.apikey } });
-    const data = await res.json();
-    const list = document.getElementById('mg-participants-list');
-    if (data && data.participants) {
-      list.classList.remove('hidden');
-      list.innerHTML = data.participants.map(p => `
-        <div class="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-gray-50 text-xs">
-          <span class="font-mono text-gray-700">${p.id}</span>
-          <span class="px-2 py-0.5 rounded-full text-xs font-medium ${p.admin ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}">${p.admin || 'member'}</span>
-        </div>`).join('');
-    }
-    setResponse(JSON.stringify(data, null, 2), res.ok);
-  }
-
-  async function updateParticipants(action) {
-    const jid = getGroupJid(); if (!jid) return;
-    const partEl = document.getElementById('mg-part-numbers');
-    const { valid, invalid } = parsePhoneLines(partEl.value);
-    if (invalid.length) return showFieldError(partEl,
-      `Invalid numbers: ${invalid.slice(0, 3).join(', ')}${invalid.length > 3 ? ` +${invalid.length - 3} more` : ''} — use international format`);
-    if (!valid.length) return alert('Enter at least one number.');
-    clearFieldError(partEl);
-    await apiCall(`/group/updateParticipant/${getCfg().instance}?groupJid=${encodeURIComponent(jid)}`, { action, participants: valid });
-  }
-
-  async function updateGroupSetting(action) {
-    const jid = getGroupJid(); if (!jid) return;
-    await apiCall(`/group/setting/${getCfg().instance}?groupJid=${encodeURIComponent(jid)}`, { action });
-  }
-
-  async function setEphemeral(expiration) {
-    const jid = getGroupJid(); if (!jid) return;
-    await apiCall(`/group/toggleEphemeral/${getCfg().instance}?groupJid=${encodeURIComponent(jid)}`, { expiration });
-  }
-
-  async function getInviteCode() {
-    const jid = getGroupJid(); if (!jid) return;
-    const cfg = getCfg();
-    const url = `${cfg.base}/group/inviteCode/${cfg.instance}?groupJid=${encodeURIComponent(jid)}`;
-    document.getElementById('resp-endpoint').textContent = `GET /group/inviteCode`;
-    setResponse('⏳ Fetching invite link...', null);
-    try {
-      const res = await fetch(url, { headers: { 'apikey': cfg.apikey } });
-      const data = await res.json();
-      setResponse(JSON.stringify(data, null, 2), res.ok);
-      const badge = document.getElementById('resp-badge');
-      badge.className = res.ok ? 'pill' : 'pill error';
-      badge.textContent = res.ok ? `${res.status} OK` : `${res.status} Error`;
-      if (res.ok && (data.inviteUrl || data.inviteCode)) {
-        const url2 = data.inviteUrl || `https://chat.whatsapp.com/${data.inviteCode}`;
-        document.getElementById('mg-invite-display').classList.remove('hidden');
-        document.getElementById('mg-invite-url').textContent = url2;
-        document.getElementById('mg-invite-display').dataset.url = url2;
-      }
-    } catch (e) { setResponse(`Error: ${e.message}`, false); }
-  }
-
-  async function revokeInviteCode() {
-    const jid = getGroupJid(); if (!jid) return;
-    if (!confirm('Revoke the invite link? The old link will stop working.')) return;
-    await apiCall(`/group/revokeInviteCode/${getCfg().instance}?groupJid=${encodeURIComponent(jid)}`, {});
-    document.getElementById('mg-invite-display').classList.add('hidden');
-  }
-
-  function copyInviteLink() {
-    const url = document.getElementById('mg-invite-display').dataset.url;
-    if (url) { navigator.clipboard.writeText(url); document.querySelector('#mg-invite-display button').textContent = 'Copied!'; setTimeout(() => { document.querySelector('#mg-invite-display button').textContent = 'Copy'; }, 1500); }
-  }
-
-  async function leaveGroup() {
-    const jid = getGroupJid(); if (!jid) return;
-    if (!confirm(`Leave this group? This cannot be undone.`)) return;
-    await apiCall(`/group/leaveGroup/${getCfg().instance}?groupJid=${encodeURIComponent(jid)}`, null, 'DELETE');
+  function pickImageFile(targetInputId) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = () => {
+      const file = input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => { document.getElementById(targetInputId).value = e.target.result; };
+      reader.readAsDataURL(file);
+    };
+    input.click();
   }
 
   async function apiCall(endpoint, body, method = 'POST') {
@@ -2451,7 +2702,7 @@
       return `
         <div class="bg-white rounded-xl border ${st.split(' ')[2] || 'border-gray-200'} shadow-sm overflow-hidden">
           <div class="p-4 flex items-start justify-between gap-4">
-            <div class="flex-1 min-w-0 space-y-1">
+            <div class="flex-1 min-w-0 space-y-1 cursor-pointer" onclick="toggleJobDetails('${job.id}')" title="Click to expand details">
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="text-xs font-semibold px-2 py-0.5 rounded-full border ${st}">${label}</span>
                 <span class="text-xs text-gray-500">${job.type === 'groups' ? '📢 Group broadcast' : '💬 Compose'}</span>
@@ -2461,13 +2712,13 @@
               <div class="text-xs leading-5">${msgPreviews}</div>
               ${job.result ? `<p class="text-xs font-medium ${job.status === 'failed' ? 'text-red-600' : 'text-green-600'}">${job.result}</p>` : ''}
             </div>
-            <div class="flex flex-col items-end gap-2 shrink-0">
-              ${job.status === 'pending' ? `<button onclick="cancelJob('${job.id}')" class="text-xs text-gray-400 hover:text-red-500 border border-gray-200 hover:border-red-300 px-3 py-1.5 rounded-lg transition-colors">Cancel</button>` : ''}
-              ${job.status === 'pending' ? `<button onclick="editJob('${job.id}')" class="text-xs text-gray-400 hover:text-orange-500 border border-gray-200 hover:border-orange-300 px-3 py-1.5 rounded-lg transition-colors">Cancel & Edit</button>` : ''}
-              ${job.status === 'cancelled' ? `<button onclick="uncancelJob('${job.id}')" class="text-xs text-gray-400 hover:text-green-600 border border-gray-200 hover:border-green-400 px-3 py-1.5 rounded-lg transition-colors">Restore</button>` : ''}
-              ${['done','cancelled'].includes(job.status) ? `<button onclick="toggleResendPanel('${job.id}')" class="text-xs text-gray-400 hover:text-blue-500 border border-gray-200 hover:border-blue-300 px-3 py-1.5 rounded-lg transition-colors">Resend</button>` : ''}
-              <button onclick="duplicateJob('${job.id}')" class="text-xs text-gray-400 hover:text-purple-500 border border-gray-200 hover:border-purple-300 px-3 py-1.5 rounded-lg transition-colors">Duplicate</button>
-              <button onclick="toggleJobDetails('${job.id}')" class="text-xs text-gray-400 hover:text-blue-500 border border-gray-200 hover:border-blue-300 px-3 py-1.5 rounded-lg transition-colors">Details ▾</button>
+            <div class="flex flex-col gap-2 shrink-0 w-24">
+              ${job.status === 'pending' ? `<button onclick="cancelJob('${job.id}')" class="w-full text-xs text-gray-400 hover:text-red-500 border border-gray-200 hover:border-red-300 px-3 py-1.5 rounded-lg transition-colors">Cancel</button>` : ''}
+              ${job.status === 'pending' ? `<button onclick="editJob('${job.id}')" class="w-full text-xs text-gray-400 hover:text-orange-500 border border-gray-200 hover:border-orange-300 px-3 py-1.5 rounded-lg transition-colors">Cancel & Edit</button>` : ''}
+              ${job.status === 'cancelled' ? `<button onclick="uncancelJob('${job.id}')" class="w-full text-xs text-gray-400 hover:text-green-600 border border-gray-200 hover:border-green-400 px-3 py-1.5 rounded-lg transition-colors">Restore</button>` : ''}
+              ${['done','cancelled'].includes(job.status) ? `<button onclick="toggleResendPanel('${job.id}')" class="w-full text-xs text-gray-400 hover:text-blue-500 border border-gray-200 hover:border-blue-300 px-3 py-1.5 rounded-lg transition-colors">Resend</button>` : ''}
+              <button onclick="duplicateJob('${job.id}')" class="w-full text-xs text-gray-400 hover:text-purple-500 border border-gray-200 hover:border-purple-300 px-3 py-1.5 rounded-lg transition-colors">Duplicate</button>
+              <button onclick="toggleJobDetails('${job.id}')" class="w-full text-xs text-gray-400 hover:text-blue-500 border border-gray-200 hover:border-blue-300 px-3 py-1.5 rounded-lg transition-colors">Details ▾</button>
             </div>
           </div>
           <div id="job-details-${job.id}" class="hidden border-t border-gray-100 bg-gray-50 px-4 py-3 space-y-3">
