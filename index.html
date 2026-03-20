@@ -42,6 +42,38 @@
     }
     #instance-picker-dropdown .inst-opt:hover { background: #f3f4f6; }
     #instance-picker-dropdown .inst-opt.active { font-weight: 600; color: #16a34a; }
+
+    /* ── Chat Feature ──────────────────────────────────────────────── */
+    #tab-chat { height: 100%; }
+    #tab-chat.active { display: flex !important; }
+    .chat-list-item { transition: background .1s; }
+    .chat-list-item.active { background-color: #f0f2f5; }
+    .chat-list-item:hover { background-color: #f5f6f6; }
+    .chat-bubble-out { background: #d9fdd3; border-radius: 8px 0 8px 8px; }
+    .chat-bubble-in  { background: #ffffff; border-radius: 0 8px 8px 8px; }
+    .chat-date-sep { font-size: 12px; background: #e2ddd5; color: #54656f; border-radius: 8px; padding: 4px 12px; display: inline-block; }
+    #chat-messages::-webkit-scrollbar-thumb { background: rgba(0,0,0,.2); }
+    .typing-dots span { display:inline-block; width:6px; height:6px; background:#8696a0; border-radius:50%; animation:typingBounce 1.4s infinite ease-in-out; }
+    .typing-dots span:nth-child(2) { animation-delay:.2s; }
+    .typing-dots span:nth-child(3) { animation-delay:.4s; }
+    @keyframes typingBounce { 0%,80%,100%{transform:scale(0)} 40%{transform:scale(1)} }
+    .emoji-picker { max-height:280px; overflow-y:auto; }
+    .emoji-picker button { width:36px; height:36px; font-size:20px; cursor:pointer; border:none; background:none; border-radius:4px; }
+    .emoji-picker button:hover { background:#f0f0f0; }
+    #chat-lightbox { background:rgba(0,0,0,.85); }
+    #chat-input { min-height:40px; line-height:1.4; }
+    #chat-input:focus { border-color:transparent !important; box-shadow:none !important; }
+    .chat-ctx-menu { position:fixed; z-index:200; background:#fff; border:1px solid #e5e7eb; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,.12); min-width:160px; padding:4px 0; }
+    .chat-ctx-menu button { display:flex; align-items:center; gap:8px; width:100%; padding:8px 16px; font-size:13px; border:none; background:none; cursor:pointer; color:#374151; }
+    .chat-ctx-menu button:hover { background:#f3f4f6; }
+    .chat-react-picker { position:absolute; display:flex; gap:2px; background:#fff; border-radius:24px; box-shadow:0 2px 12px rgba(0,0,0,.15); padding:4px 8px; z-index:150; }
+    .chat-react-picker button { font-size:20px; border:none; background:none; cursor:pointer; padding:4px; border-radius:50%; }
+    .chat-react-picker button:hover { background:#f0f0f0; }
+    .chat-filter-btn { background:#fff; color:#54656f; border-color:#d1d5db; cursor:pointer; transition:all .15s; }
+    .chat-filter-btn:hover { background:#f0f2f5; }
+    .chat-filter-btn.active { background:#e7fce9; color:#008069; border-color:#25D366; }
+    .chat-archived-bar { display:flex; align-items:center; gap:8px; padding:12px 16px; cursor:pointer; color:#008069; font-size:13px; font-weight:500; border-bottom:1px solid #f1f1f1; }
+    .chat-archived-bar:hover { background:#f5f6f6; }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -172,6 +204,13 @@
 
   <!-- Sidebar -->
   <aside class="w-56 bg-white border-r border-gray-200 flex flex-col py-4 gap-1 px-3 overflow-y-auto shrink-0">
+    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 mb-2">Chat</p>
+    <button class="sidebar-btn text-sm font-medium px-3 py-2.5 rounded-lg text-left text-gray-600 flex items-center gap-2.5" onclick="switchTab('chat', this)">
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-2.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg>
+      Inbox
+      <span id="chat-unread-badge" class="hidden ml-auto bg-green-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center"></span>
+    </button>
+    <div class="my-3 border-t border-gray-200"></div>
     <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 mb-2">Messages</p>
     <button class="sidebar-btn active text-sm font-medium px-3 py-2.5 rounded-lg text-left flex items-center gap-2.5" onclick="switchTab('text', this)">
       <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
@@ -240,6 +279,146 @@
   <!-- Main -->
   <main class="flex-1 flex flex-col overflow-hidden">
     <div id="content-scroll" class="flex-1 overflow-y-auto p-6">
+
+      <!-- CHAT / INBOX -->
+      <div id="tab-chat" class="tab-panel flex h-full">
+        <!-- LEFT: Chat list -->
+        <div id="chat-list-panel" class="w-[350px] border-r border-gray-200 flex flex-col bg-white shrink-0 h-full">
+          <div class="p-3 border-b border-gray-100 space-y-2">
+            <div class="relative">
+              <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+              <input id="chat-search" type="text" placeholder="Search or start new chat" class="w-full bg-gray-100 border-0 rounded-lg pl-10 pr-4 py-2 text-sm" oninput="chatFilterList(this.value)"/>
+            </div>
+            <!-- Filter tabs -->
+            <div id="chat-filter-tabs" class="flex gap-1.5 overflow-x-auto pb-0.5">
+              <button class="chat-filter-btn active text-xs font-medium px-3 py-1 rounded-full border whitespace-nowrap" data-filter="all" onclick="chatSetFilter('all',this)">All</button>
+              <button class="chat-filter-btn text-xs font-medium px-3 py-1 rounded-full border whitespace-nowrap" data-filter="unread" onclick="chatSetFilter('unread',this)">Unread</button>
+              <button class="chat-filter-btn text-xs font-medium px-3 py-1 rounded-full border whitespace-nowrap" data-filter="favorites" onclick="chatSetFilter('favorites',this)">Favorites</button>
+              <button class="chat-filter-btn text-xs font-medium px-3 py-1 rounded-full border whitespace-nowrap" data-filter="groups" onclick="chatSetFilter('groups',this)">Groups</button>
+              <button class="chat-filter-btn text-xs font-medium px-3 py-1 rounded-full border whitespace-nowrap" data-filter="archived" onclick="chatSetFilter('archived',this)">
+                <svg class="w-3 h-3 inline -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+                Archived <span id="chat-archived-count" class="text-[10px] text-gray-400"></span>
+              </button>
+            </div>
+          </div>
+          <div id="chat-list" class="flex-1 overflow-y-auto">
+            <div class="flex items-center justify-center h-full text-gray-400 text-sm">Loading chats...</div>
+          </div>
+          <div class="p-3 border-t border-gray-100">
+            <button onclick="chatStartNew()" class="w-full btn-send text-white text-sm font-medium py-2 rounded-lg flex items-center justify-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              New Chat
+            </button>
+          </div>
+        </div>
+        <!-- RIGHT: Thread -->
+        <div id="chat-thread-panel" class="flex-1 flex flex-col h-full bg-[#efeae2]">
+          <!-- Empty state -->
+          <div id="chat-empty-state" class="flex-1 flex items-center justify-center">
+            <div class="text-center text-gray-500">
+              <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-2.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg>
+              <p class="text-lg font-medium">WhatsApp Chat</p>
+              <p class="text-sm mt-1">Select a conversation to start messaging</p>
+            </div>
+          </div>
+          <!-- Active chat (hidden until selected) -->
+          <div id="chat-active" class="hidden flex-col h-full" style="display:none">
+            <!-- Header -->
+            <div id="chat-header" class="bg-white px-4 py-2.5 flex items-center gap-3 border-b border-gray-200 shrink-0">
+              <button onclick="chatCloseConversation()" class="p-1 hover:bg-gray-100 rounded-full mr-1 lg:hidden" title="Back">
+                <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+              </button>
+              <div id="chat-header-avatar" class="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-white font-bold text-sm shrink-0 overflow-hidden"></div>
+              <div class="flex-1 min-w-0">
+                <p id="chat-header-name" class="text-sm font-semibold text-gray-900 truncate"></p>
+                <p id="chat-header-status" class="text-xs text-gray-500 truncate"></p>
+              </div>
+              <div class="flex items-center gap-1">
+                <button onclick="chatSearchMessages()" class="p-2 hover:bg-gray-100 rounded-full" title="Search messages">
+                  <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                </button>
+              </div>
+            </div>
+            <!-- Messages -->
+            <div id="chat-messages" class="flex-1 overflow-y-auto px-12 py-4 space-y-1" style="background-color:#efeae2"></div>
+            <!-- Reply bar -->
+            <div id="chat-reply-bar" class="hidden bg-white border-t border-gray-200 px-4 py-2 items-center gap-3" style="display:none">
+              <div class="flex-1 border-l-4 border-green-500 pl-3 min-w-0">
+                <p id="chat-reply-name" class="text-xs font-semibold text-green-700"></p>
+                <p id="chat-reply-text" class="text-xs text-gray-500 truncate"></p>
+              </div>
+              <button onclick="chatCancelReply()" class="text-gray-400 hover:text-gray-600 shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <!-- Input bar -->
+            <div id="chat-input-bar" class="bg-white px-4 py-3 flex items-end gap-2 border-t border-gray-200 shrink-0">
+              <button onclick="chatToggleEmoji()" class="p-2 hover:bg-gray-100 rounded-full shrink-0" title="Emoji">
+                <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              </button>
+              <div id="chat-emoji-panel" class="hidden absolute bottom-16 left-16 bg-white border border-gray-200 rounded-xl shadow-xl p-3 z-50 w-80">
+                <div class="emoji-picker flex flex-wrap"></div>
+              </div>
+              <button onclick="chatAttachMedia()" class="p-2 hover:bg-gray-100 rounded-full shrink-0" title="Attach">
+                <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+              </button>
+              <input type="file" id="chat-file-input" class="hidden" onchange="chatOnFileSelected(this)"/>
+              <div class="flex-1 relative">
+                <textarea id="chat-input" rows="1" placeholder="Type a message" class="w-full bg-gray-100 border-0 rounded-2xl px-4 py-2.5 text-sm resize-none max-h-32 overflow-y-auto" oninput="chatAutoResize(this); chatOnTyping()" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();chatSend()}"></textarea>
+              </div>
+              <button id="chat-send-btn" onclick="chatSend()" class="p-2.5 bg-[#25D366] hover:bg-[#1ebe5d] text-white rounded-full shrink-0" title="Send">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </button>
+              <button onclick="chatToggleSchedule()" class="p-2.5 hover:bg-gray-100 rounded-full shrink-0 text-gray-500" title="Schedule send">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              </button>
+            </div>
+            <!-- Schedule send panel -->
+            <div id="chat-schedule-panel" class="hidden bg-white border-t border-gray-200 px-4 py-3 shrink-0">
+              <div class="flex items-center gap-3">
+                <svg class="w-5 h-5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <input type="datetime-local" id="chat-schedule-dt" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
+                <button onclick="chatScheduleSend()" class="px-4 py-2 bg-[#25D366] hover:bg-[#1ebe5d] text-white rounded-lg text-sm font-medium whitespace-nowrap">Schedule</button>
+                <button onclick="chatToggleSchedule()" class="text-gray-400 hover:text-gray-600 p-1">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- New Chat Modal -->
+      <div id="chat-new-modal" class="fixed inset-0 z-[100] items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+          <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h2 class="text-base font-bold text-gray-900">New Chat</h2>
+            <button onclick="chatCloseNewModal()" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div class="px-6 py-4 space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Phone number</label>
+              <input id="chat-new-number" type="text" placeholder="e.g. 972501234567" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" onkeydown="if(event.key==='Enter')chatOpenNewByNumber()"/>
+            </div>
+            <button onclick="chatOpenNewByNumber()" class="w-full btn-send text-white text-sm font-medium py-2 rounded-lg">Start Chat</button>
+            <div class="border-t border-gray-100 pt-3">
+              <p class="text-xs text-gray-400 mb-2">Or select a contact:</p>
+              <input id="chat-new-search" type="text" placeholder="Search contacts..." class="w-full bg-gray-100 border-0 rounded-lg px-3 py-2 text-sm mb-2" oninput="chatFilterNewContacts(this.value)"/>
+              <div id="chat-new-contacts" class="max-h-48 overflow-y-auto space-y-1"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Image Lightbox -->
+      <div id="chat-lightbox" class="fixed inset-0 z-[110] items-center justify-center" style="display:none;background:rgba(0,0,0,.85)">
+        <button onclick="chatCloseLightbox()" class="absolute top-4 right-4 text-white hover:text-gray-300 z-10">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+        <img id="chat-lightbox-img" class="max-w-[90vw] max-h-[90vh] object-contain mx-auto" src="" alt=""/>
+      </div>
 
       <!-- COMPOSE -->
       <div id="tab-text" class="tab-panel active max-w-2xl">
@@ -1942,6 +2121,17 @@
     }
   }
 
+  // Silent API caller for chat feature (no response panel side-effects)
+  async function chatApiCall(endpoint, body, method = 'POST') {
+    const cfg = getCfg();
+    const url = `${cfg.base}${endpoint}`;
+    const opts = { method, headers: { 'Content-Type': 'application/json', 'apikey': cfg.apikey } };
+    if (body !== null && method !== 'GET' && method !== 'DELETE') opts.body = JSON.stringify(body);
+    const res = await fetch(url, opts);
+    if (!res.ok) throw new Error(`API ${res.status}: ${res.statusText}`);
+    return res.json();
+  }
+
   function setResponse(text, ok) {
     const el = document.getElementById('response-area');
     el.innerHTML = '';
@@ -1960,6 +2150,8 @@
   }
 
   function switchTab(name, btn) {
+    // Destroy chat polling when leaving chat tab
+    if (typeof chatDestroy === 'function') chatDestroy();
     // Explicitly hide ALL panels via inline style (bypasses any CSS specificity issues)
     document.querySelectorAll('.tab-panel').forEach(p => {
       p.classList.remove('active');
@@ -1968,15 +2160,25 @@
     document.querySelectorAll('.sidebar-btn').forEach(b => { b.classList.remove('active'); b.classList.add('text-gray-600'); });
     const target = document.getElementById(`tab-${name}`);
     target.classList.add('active');
-    target.style.display = 'block';
+    target.style.display = name === 'chat' ? 'flex' : 'block';
     btn.classList.add('active');
     btn.classList.remove('text-gray-600');
     clearResponse();
-    // Reset scroll to top
+    // Adjust layout for chat tab (no padding, no scroll — children handle their own)
     const scrollArea = document.getElementById('content-scroll');
-    if (scrollArea) scrollArea.scrollTop = 0;
+    if (name === 'chat') {
+      scrollArea.classList.remove('p-6');
+      scrollArea.classList.add('p-0');
+      scrollArea.style.overflowY = 'hidden';
+      chatInit();
+    } else {
+      scrollArea.classList.add('p-6');
+      scrollArea.classList.remove('p-0');
+      scrollArea.style.overflowY = '';
+      if (scrollArea) scrollArea.scrollTop = 0;
+    }
     // Hide the response panel for tabs that don't make direct API calls
-    const noResponsePanel = ['scheduled', 'settings'];
+    const noResponsePanel = ['scheduled', 'settings', 'chat'];
     const respPanel = document.querySelector('main > div.border-t');
     if (respPanel) respPanel.style.display = noResponsePanel.includes(name) ? 'none' : '';
   }
@@ -2325,7 +2527,7 @@
     });
   }
   // ── SCHEDULER ─────────────────────────────────────────────────────────────
-  const DB_NAME = 'wa_manager', DB_VERSION = 1, STORE_NAME = 'scheduled_jobs';
+  const DB_NAME = 'wa_manager', DB_VERSION = 2, STORE_NAME = 'scheduled_jobs';
   let _db = null;
 
   function openDB() {
@@ -2334,8 +2536,23 @@
       const req = indexedDB.open(DB_NAME, DB_VERSION);
       req.onupgradeneeded = e => {
         const db = e.target.result;
+        // v1 store
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+        }
+        // v2 stores — chat feature
+        if (!db.objectStoreNames.contains('chat_contacts')) {
+          db.createObjectStore('chat_contacts', { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains('chat_conversations')) {
+          const cs = db.createObjectStore('chat_conversations', { keyPath: 'id' });
+          cs.createIndex('lastMsgTimestamp', 'lastMsgTimestamp');
+        }
+        if (!db.objectStoreNames.contains('chat_messages')) {
+          const ms = db.createObjectStore('chat_messages', { keyPath: 'id' });
+          ms.createIndex('remoteJid', 'remoteJid');
+          ms.createIndex('timestamp', 'timestamp');
+          ms.createIndex('jid_ts', ['remoteJid', 'timestamp']);
         }
       };
       req.onsuccess = e => { _db = e.target.result; resolve(_db); };
@@ -3362,6 +3579,1320 @@
     };
     await apiCall(`/profile/privacy/${getCfg().instance}`, body, 'PUT');
   }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // ██  CHAT / INBOX FEATURE
+  // ══════════════════════════════════════════════════════════════════════
+
+  const chatState = {
+    conversations: [],
+    contacts: {},
+    activeJid: null,
+    messages: [],
+    replyTo: null,
+    pollTimer: null,
+    chatListPollTimer: null,
+    searchQuery: '',
+    activeFilter: 'all', // all | unread | favorites | groups
+    typingTimer: null,
+    initialized: false,
+  };
+
+  // ── Avatar colors (deterministic by jid) ─────────────────────────────
+  const AVATAR_COLORS = ['#25D366','#128C7E','#075E54','#34B7F1','#00A884','#5B61B9','#D4524A','#E67E22','#8E44AD','#2C3E50'];
+  function chatAvatarColor(jid) { let h=0; for(let i=0;i<jid.length;i++) h=((h<<5)-h)+jid.charCodeAt(i); return AVATAR_COLORS[Math.abs(h)%AVATAR_COLORS.length]; }
+  function chatInitials(name) { if(!name) return '?'; const p=name.trim().split(/\s+/); return p.length>=2 ? (p[0][0]+p[1][0]).toUpperCase() : name.slice(0,2).toUpperCase(); }
+  function chatExtractNumber(jid) { return jid ? jid.split('@')[0] : ''; }
+  function chatIsGroup(jid) { return jid && jid.endsWith('@g.us'); }
+
+  // ── Time formatting ──────────────────────────────────────────────────
+  function chatFormatTime(ts) {
+    if (!ts) return '';
+    const d = new Date(typeof ts === 'number' && ts < 1e12 ? ts * 1000 : ts);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  function chatFormatListDate(ts) {
+    if (!ts) return '';
+    const d = new Date(typeof ts === 'number' && ts < 1e12 ? ts * 1000 : ts);
+    const now = new Date();
+    const diff = Math.floor((now - d) / 86400000);
+    if (diff === 0 && d.getDate() === now.getDate()) return chatFormatTime(ts);
+    if (diff < 7) return d.toLocaleDateString([], { weekday: 'short' });
+    return d.toLocaleDateString([], { month: '2-digit', day: '2-digit', year: '2-digit' });
+  }
+  function chatFormatDateSep(ts) {
+    const d = new Date(typeof ts === 'number' && ts < 1e12 ? ts * 1000 : ts);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const msgDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const diff = Math.floor((today - msgDay) / 86400000);
+    if (diff === 0) return 'Today';
+    if (diff === 1) return 'Yesterday';
+    return d.toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' });
+  }
+
+  // ── Tick marks SVG ───────────────────────────────────────────────────
+  function chatTicks(status) {
+    if (status === 'READ' || status === 'read' || status === 'PLAYED') return '<svg class="w-4 h-3 inline text-blue-500" viewBox="0 0 16 11"><path fill="currentColor" d="M11.07.66L5.64 6.08 3.49 3.93 2.07 5.34l3.57 3.57 6.85-6.84zM8.5 3.93L7.07 5.34l3.57 3.57 6.85-6.84L16.07.66l-5.42 5.42z"/></svg>';
+    if (status === 'DELIVERY_ACK' || status === 'delivered') return '<svg class="w-4 h-3 inline text-gray-400" viewBox="0 0 16 11"><path fill="currentColor" d="M11.07.66L5.64 6.08 3.49 3.93 2.07 5.34l3.57 3.57 6.85-6.84zM8.5 3.93L7.07 5.34l3.57 3.57 6.85-6.84L16.07.66l-5.42 5.42z"/></svg>';
+    if (status === 'SERVER_ACK' || status === 'sent') return '<svg class="w-4 h-3 inline text-gray-400" viewBox="0 0 16 11"><path fill="currentColor" d="M10.07.66L4.64 6.08 2.49 3.93 1.07 5.34l3.57 3.57 6.85-6.84z"/></svg>';
+    return '';
+  }
+
+  // ── IndexedDB helpers for chat stores ────────────────────────────────
+  async function chatDbPut(store, record) {
+    const db = await openDB();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(store, 'readwrite');
+      tx.objectStore(store).put(record);
+      tx.oncomplete = res; tx.onerror = e => rej(e.target.error);
+    });
+  }
+  async function chatDbGetAll(store) {
+    const db = await openDB();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(store, 'readonly');
+      const req = tx.objectStore(store).getAll();
+      req.onsuccess = () => res(req.result || []);
+      req.onerror = e => rej(e.target.error);
+    });
+  }
+  async function chatDbGet(store, key) {
+    const db = await openDB();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(store, 'readonly');
+      const req = tx.objectStore(store).get(key);
+      req.onsuccess = () => res(req.result);
+      req.onerror = e => rej(e.target.error);
+    });
+  }
+  async function chatDbGetByIndex(store, indexName, key) {
+    const db = await openDB();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(store, 'readonly');
+      const idx = tx.objectStore(store).index(indexName);
+      const req = idx.getAll(key);
+      req.onsuccess = () => res(req.result || []);
+      req.onerror = e => rej(e.target.error);
+    });
+  }
+  async function chatDbPutMany(store, records) {
+    const db = await openDB();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(store, 'readwrite');
+      const s = tx.objectStore(store);
+      records.forEach(r => s.put(r));
+      tx.oncomplete = res; tx.onerror = e => rej(e.target.error);
+    });
+  }
+
+  // ── API: Fetch contacts ──────────────────────────────────────────────
+  async function chatFetchContacts() {
+    try {
+      const cfg = getCfg();
+      const data = await chatApiCall(`/chat/findContacts/${cfg.instance}`, {});
+      if (!Array.isArray(data)) return [];
+      const contacts = data.map(c => ({
+        id: c.id || c.remoteJid || c.wid,
+        // name = phone address book name (saved by user), pushName = WhatsApp profile name
+        savedName: c.name || c.verifiedName || '',
+        pushName: c.pushName || '',
+        // displayName priority: phone-saved name > pushName > phone number
+        displayName: c.name || c.verifiedName || c.pushName || chatExtractNumber(c.id || c.remoteJid || c.wid || ''),
+        profilePicUrl: c.profilePicUrl || c.profilePictureUrl || '',
+        phone: chatExtractNumber(c.id || c.remoteJid || c.wid || ''),
+        isFavorite: c.isFavorite || c.starred || false,
+      })).filter(c => c.id);
+      await chatDbPutMany('chat_contacts', contacts);
+      contacts.forEach(c => { chatState.contacts[c.id] = c; });
+      return contacts;
+    } catch (e) { console.warn('chatFetchContacts error:', e); return []; }
+  }
+
+  // ── Locally persisted archived JIDs (API doesn't reliably return this) ──
+  function chatGetArchivedJids() {
+    try { return JSON.parse(localStorage.getItem('wa_chat_archived') || '[]'); } catch { return []; }
+  }
+  function chatSaveArchivedJids(jids) {
+    localStorage.setItem('wa_chat_archived', JSON.stringify(jids));
+  }
+
+  // ── API: Fetch conversations (chat list) ─────────────────────────────
+  function _chatParseConv(c, forceArchived) {
+    const jid = c.id || c.remoteJid || '';
+    const lastMsg = c.lastMessage || c.lastMsgContent || {};
+    const contact = chatState.contacts[jid];
+    const name = (contact && contact.savedName) || (contact && contact.displayName) || c.name || c.pushName || c.subject || chatExtractNumber(jid);
+    let lastText = '';
+    if (typeof lastMsg === 'string') lastText = lastMsg;
+    else if (lastMsg.message) {
+      const m = lastMsg.message;
+      lastText = m.conversation || m.extendedTextMessage?.text || (m.imageMessage ? '📷 Photo' : '') || (m.videoMessage ? '🎥 Video' : '') || (m.audioMessage ? '🎤 Audio' : '') || (m.documentMessage ? '📄 Document' : '') || (m.stickerMessage ? '🏷 Sticker' : '') || '';
+    }
+    const apiArchived = forceArchived || !!(c.archived || c.archive || c.isArchived || c.archiveAtTimestamp || c.archiveV2);
+    const lastMsgKey = lastMsg.key || null;
+    return {
+      id: jid,
+      name,
+      profilePicUrl: c.profilePicUrl || c.profilePictureUrl || (contact && contact.profilePicUrl) || '',
+      lastMessage: lastText,
+      lastMsgTimestamp: c.lastMsgTimestamp || c.updatedAt || (lastMsg.messageTimestamp ? lastMsg.messageTimestamp * 1000 : 0),
+      unreadCount: c.unreadCount || 0,
+      isGroup: chatIsGroup(jid),
+      fromMe: lastMsg.key ? lastMsg.key.fromMe : false,
+      archived: apiArchived,
+      pinned: c.pinned || c.pin || false,
+      isFavorite: c.starred || c.isFavorite || (contact && contact.isFavorite) || false,
+      labels: c.labels || c.label || [],
+      _lastMsgKey: lastMsgKey,
+    };
+  }
+
+  async function chatFetchConversations() {
+    try {
+      const cfg = getCfg();
+      // Fetch normal chats and try multiple strategies to get archived chats
+      // Strategy 1: normal fetch (may include archive field)
+      // Strategy 2: { archive: true } filter (may or may not work - known API bug #1822)
+      // Strategy 3: { where: { archived: true } } (alternative filter syntax)
+      const [normalData, archivedData, archivedData2] = await Promise.all([
+        chatApiCall(`/chat/findChats/${cfg.instance}`, {}).catch(() => []),
+        chatApiCall(`/chat/findChats/${cfg.instance}`, { archive: true }).catch(() => []),
+        chatApiCall(`/chat/findChats/${cfg.instance}`, { where: { archived: true } }).catch(() => []),
+      ]);
+      const data = Array.isArray(normalData) ? normalData : [];
+      const archData = Array.isArray(archivedData) ? archivedData : [];
+      const archData2 = Array.isArray(archivedData2) ? archivedData2 : [];
+
+      // Deep-log raw responses once for debugging archive detection
+      if (!chatState._rawFieldsLogged && (data.length || archData.length)) {
+        chatState._rawFieldsLogged = true;
+        if (data.length) {
+          console.log('[Chat] findChats (normal) count:', data.length, 'first item keys:', Object.keys(data[0]));
+          console.log('[Chat] findChats (normal) sample:', JSON.stringify(data[0]).slice(0, 800));
+          // Scan ALL items for any archive-like field
+          const archFields = data.filter(c => c.archived || c.archive || c.isArchived || c.muteExpiration || c.tcToken);
+          console.log('[Chat] findChats (normal) items with archive-related fields:', archFields.length);
+          if (archFields.length) console.log('[Chat] sample archived item:', JSON.stringify(archFields[0]).slice(0, 800));
+          // Deep scan: log all unique keys across first 10 items
+          const allKeys = new Set();
+          data.slice(0, 10).forEach(c => Object.keys(c).forEach(k => allKeys.add(k)));
+          console.log('[Chat] findChats ALL fields across first 10 items:', [...allKeys]);
+        }
+        console.log('[Chat] findChats (archive:true) count:', archData.length);
+        if (archData.length) {
+          console.log('[Chat] findChats (archive:true) sample:', JSON.stringify(archData[0]).slice(0, 800));
+          // Check if archive result is different from normal
+          const normalIds = new Set(data.map(c => c.id || c.remoteJid));
+          const archOnlyIds = archData.filter(c => !normalIds.has(c.id || c.remoteJid));
+          console.log('[Chat] archive-only items (not in normal):', archOnlyIds.length, archOnlyIds.map(c => c.id || c.remoteJid));
+        }
+        console.log('[Chat] findChats (where.archived:true) count:', archData2.length);
+        if (archData2.length) {
+          console.log('[Chat] findChats (where.archived) sample:', JSON.stringify(archData2[0]).slice(0, 800));
+        }
+      }
+
+      let archivedJids = chatGetArchivedJids();
+      const seenJids = new Set();
+
+      // Parse normal chats
+      const convs = [];
+      data.forEach(c => {
+        const parsed = _chatParseConv(c, false);
+        if (!parsed.id || parsed.id === 'status@broadcast') return;
+        // If locally archived, mark it
+        if (archivedJids.includes(parsed.id)) parsed.archived = true;
+        seenJids.add(parsed.id);
+        convs.push(parsed);
+      });
+
+      // Parse archived chats from both archive fetch strategies
+      const apiDetectedArchived = [];
+      const processArchived = (items) => {
+        items.forEach(c => {
+          const jid = c.id || c.remoteJid || '';
+          if (!jid || jid === 'status@broadcast') return;
+          if (!apiDetectedArchived.includes(jid)) apiDetectedArchived.push(jid);
+          if (seenJids.has(jid)) {
+            const existing = convs.find(x => x.id === jid);
+            if (existing) existing.archived = true;
+          } else {
+            const parsed = _chatParseConv(c, true);
+            seenJids.add(jid);
+            convs.push(parsed);
+          }
+        });
+      };
+      processArchived(archData);
+      processArchived(archData2);
+
+      // Also scan normal data for any archive-like flags (multiple field names)
+      data.forEach(c => {
+        const jid = c.id || c.remoteJid || '';
+        // Check all possible archive field names from Baileys/Evolution
+        if (c.archived || c.archive || c.isArchived || c.archiveAtTimestamp || c.archiveV2) {
+          if (!apiDetectedArchived.includes(jid)) apiDetectedArchived.push(jid);
+          const existing = convs.find(x => x.id === jid);
+          if (existing) existing.archived = true;
+        }
+      });
+
+      // Sync all detected archived JIDs into localStorage
+      if (apiDetectedArchived.length) {
+        apiDetectedArchived.forEach(jid => { if (!archivedJids.includes(jid)) archivedJids.push(jid); });
+        chatSaveArchivedJids(archivedJids);
+      }
+
+      // Also apply any remaining localStorage-only archived JIDs (user archived via our UI before)
+      archivedJids.forEach(jid => {
+        const existing = convs.find(x => x.id === jid);
+        if (existing) existing.archived = true;
+      });
+
+      convs.sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+        return (b.lastMsgTimestamp || 0) - (a.lastMsgTimestamp || 0);
+      });
+      await chatDbPutMany('chat_conversations', convs);
+      chatState.conversations = convs;
+      return convs;
+    } catch (e) { console.warn('chatFetchConversations error:', e); return []; }
+  }
+
+  // ── API: Fetch messages for a conversation ───────────────────────────
+  async function chatFetchMessages(jid) {
+    try {
+      const cfg = getCfg();
+      const data = await chatApiCall(`/chat/findMessages/${cfg.instance}`, {
+        where: { key: { remoteJid: jid } }
+      });
+      let msgs = Array.isArray(data) ? data : (data && Array.isArray(data.messages)) ? data.messages : [];
+      // Client-side filter (workaround for Evolution API bug)
+      msgs = msgs.filter(m => {
+        const mJid = m.key?.remoteJid || m.remoteJid || '';
+        return mJid === jid;
+      });
+      const parsed = msgs.map(m => chatParseMessage(m, jid)).filter(Boolean);
+      if (parsed.length) await chatDbPutMany('chat_messages', parsed);
+      // Extract pushName from incoming messages to update contact names
+      chatUpdateContactNamesFromMessages(jid, parsed);
+      return parsed;
+    } catch (e) { console.warn('chatFetchMessages error:', e); return []; }
+  }
+
+  // ── Update contact names from message pushName data ──────────────────
+  // The findContacts endpoint has a known bug where pushName gets overwritten
+  // with empty string. Messages still carry the correct pushName, so we
+  // extract it from the latest incoming message per contact.
+  function chatUpdateContactNamesFromMessages(jid, messages) {
+    if (!messages.length) return;
+    // For direct chats, get pushName from the latest incoming message
+    if (!chatIsGroup(jid)) {
+      const incoming = messages.filter(m => !m.fromMe && m.pushName);
+      if (incoming.length) {
+        const latest = incoming[incoming.length - 1];
+        const contact = chatState.contacts[jid];
+        if (contact) {
+          // Only update if we don't have a saved name and the pushName is better
+          if (!contact.savedName && latest.pushName && latest.pushName !== contact.pushName) {
+            contact.pushName = latest.pushName;
+            contact.displayName = contact.savedName || latest.pushName;
+            chatDbPut('chat_contacts', contact).catch(() => {});
+          }
+        } else {
+          // Create a new contact entry from message data
+          const newContact = {
+            id: jid,
+            savedName: '',
+            pushName: latest.pushName,
+            displayName: latest.pushName,
+            profilePicUrl: '',
+            phone: chatExtractNumber(jid),
+            isFavorite: false,
+          };
+          chatState.contacts[jid] = newContact;
+          chatDbPut('chat_contacts', newContact).catch(() => {});
+        }
+        // Update conversation name too
+        const conv = chatState.conversations.find(c => c.id === jid);
+        if (conv && conv.name === chatExtractNumber(jid) && latest.pushName) {
+          conv.name = latest.pushName;
+        }
+      }
+    } else {
+      // For groups, update participant names
+      const nameMap = {};
+      messages.forEach(m => {
+        if (!m.fromMe && m.pushName) {
+          const senderJid = m.senderJid || (m.key && m.key.participant) || '';
+          if (senderJid) nameMap[senderJid] = m.pushName;
+        }
+      });
+      Object.entries(nameMap).forEach(([sJid, pName]) => {
+        if (!chatState.contacts[sJid]) {
+          chatState.contacts[sJid] = {
+            id: sJid, savedName: '', pushName: pName, displayName: pName,
+            profilePicUrl: '', phone: chatExtractNumber(sJid), isFavorite: false,
+          };
+        } else if (!chatState.contacts[sJid].savedName && pName) {
+          chatState.contacts[sJid].pushName = pName;
+          chatState.contacts[sJid].displayName = pName;
+        }
+      });
+    }
+  }
+
+  function chatParseMessage(m, fallbackJid) {
+    try {
+      const key = m.key || {};
+      const msg = m.message || {};
+      const jid = key.remoteJid || m.remoteJid || fallbackJid;
+      const id = key.id || m.id || m.messageId || (Date.now() + Math.random()).toString();
+      const fromMe = key.fromMe || false;
+      const ts = m.messageTimestamp || m.timestamp || 0;
+      const timestamp = typeof ts === 'number' && ts < 1e12 ? ts * 1000 : ts;
+
+      let type = 'text', text = '', caption = '', mediaUrl = '', mimetype = '', fileName = '', thumbBase64 = '';
+      const pushName = m.pushName || '';
+
+      if (msg.conversation) { type = 'text'; text = msg.conversation; }
+      else if (msg.extendedTextMessage) { type = 'text'; text = msg.extendedTextMessage.text || ''; }
+      else if (msg.imageMessage) { type = 'image'; caption = msg.imageMessage.caption || ''; mediaUrl = msg.imageMessage.url || ''; mimetype = msg.imageMessage.mimetype || ''; thumbBase64 = msg.imageMessage.jpegThumbnail || ''; }
+      else if (msg.videoMessage) { type = 'video'; caption = msg.videoMessage.caption || ''; mediaUrl = msg.videoMessage.url || ''; mimetype = msg.videoMessage.mimetype || ''; }
+      else if (msg.audioMessage) { type = 'audio'; mediaUrl = msg.audioMessage.url || ''; mimetype = msg.audioMessage.mimetype || ''; }
+      else if (msg.documentMessage) { type = 'document'; fileName = msg.documentMessage.fileName || 'document'; mediaUrl = msg.documentMessage.url || ''; mimetype = msg.documentMessage.mimetype || ''; caption = msg.documentMessage.caption || ''; }
+      else if (msg.stickerMessage) { type = 'sticker'; mediaUrl = msg.stickerMessage.url || ''; }
+      else if (msg.locationMessage) { type = 'location'; text = `📍 ${msg.locationMessage.degreesLatitude},${msg.locationMessage.degreesLongitude}`; }
+      else if (msg.contactMessage) { type = 'contact'; text = `👤 ${msg.contactMessage.displayName || 'Contact'}`; }
+      else if (msg.reactionMessage) { return null; /* skip reactions as standalone messages */ }
+      else { text = m.body || msg.text || ''; if (!text && Object.keys(msg).length === 0 && m.messageType) text = `[${m.messageType}]`; }
+
+      // Quoted message
+      let quotedMsg = null;
+      const ctx = msg.extendedTextMessage?.contextInfo || msg.imageMessage?.contextInfo || msg.videoMessage?.contextInfo || msg.audioMessage?.contextInfo || msg.documentMessage?.contextInfo;
+      if (ctx && ctx.quotedMessage) {
+        const qm = ctx.quotedMessage;
+        quotedMsg = {
+          id: ctx.stanzaId || '',
+          text: qm.conversation || qm.extendedTextMessage?.text || qm.imageMessage?.caption || '📷 Photo',
+          fromMe: ctx.participant ? false : true,
+          participant: ctx.participant || '',
+        };
+      }
+
+      const status = m.status || (fromMe ? 'SERVER_ACK' : '');
+
+      const senderJid = key.participant || m.participant || '';
+      return { id, remoteJid: jid, fromMe, timestamp, type, text, caption, mediaUrl, mimetype, fileName, thumbBase64, quotedMsg, status, pushName, senderJid };
+    } catch (e) { console.warn('chatParseMessage error:', e); return null; }
+  }
+
+  // ── Resolve contact name (phone-saved name > pushName > number) ─────
+  function chatResolveName(jid) {
+    if (!jid) return 'Unknown';
+    const c = chatState.contacts[jid];
+    if (c) {
+      if (c.savedName) return c.savedName;
+      if (c.displayName) return c.displayName;
+      if (c.pushName) return c.pushName;
+    }
+    const conv = chatState.conversations.find(x => x.id === jid);
+    if (conv && conv.name) return conv.name;
+    return chatExtractNumber(jid);
+  }
+
+  // ── Filter tab handler ──────────────────────────────────────────────
+  function chatSetFilter(filter, btn) {
+    chatState.activeFilter = filter;
+    document.querySelectorAll('.chat-filter-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    else {
+      const tab = document.querySelector(`.chat-filter-btn[data-filter="${filter}"]`);
+      if (tab) tab.classList.add('active');
+    }
+    chatRenderList();
+  }
+
+  // ── Render chat list ─────────────────────────────────────────────────
+  function chatRenderList() {
+    const el = document.getElementById('chat-list');
+    const q = chatState.searchQuery.toLowerCase();
+    const filter = chatState.activeFilter || 'all';
+
+    // Update archived count in filter chip
+    const archivedTotal = chatState.conversations.filter(c => c.archived).length;
+    const countEl = document.getElementById('chat-archived-count');
+    if (countEl) countEl.textContent = archivedTotal > 0 ? archivedTotal : '';
+
+    // Build filtered list
+    let convs;
+    if (filter === 'archived') {
+      convs = chatState.conversations.filter(c => c.archived);
+    } else {
+      convs = chatState.conversations.filter(c => !c.archived);
+      if (filter === 'unread') convs = convs.filter(c => c.unreadCount > 0);
+      else if (filter === 'favorites') convs = convs.filter(c => c.isFavorite || c.pinned);
+      else if (filter === 'groups') convs = convs.filter(c => c.isGroup);
+    }
+
+    // Apply search
+    if (q) {
+      convs = convs.filter(c => (c.name||'').toLowerCase().includes(q) || chatExtractNumber(c.id).includes(q));
+    }
+
+    if (!convs.length) {
+      const msg = filter === 'archived' ? 'No archived chats' : q ? 'No matches' : filter === 'unread' ? 'No unread messages' : filter === 'favorites' ? 'No favorites' : filter === 'groups' ? 'No groups' : 'No conversations yet';
+      el.innerHTML = '<div class="flex items-center justify-center h-32 text-gray-400 text-sm">' + msg + '</div>';
+      return;
+    }
+
+    el.innerHTML = convs.map(c => chatRenderListItem(c)).join('');
+  }
+
+  function chatRenderListItem(c) {
+    const isActive = chatState.activeJid === c.id;
+    const color = chatAvatarColor(c.id);
+    const initials = chatInitials(c.name);
+    const avatar = c.profilePicUrl
+      ? `<img src="${c.profilePicUrl}" class="w-12 h-12 rounded-full object-cover" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/><div class="w-12 h-12 rounded-full items-center justify-center text-white font-bold text-sm shrink-0" style="display:none;background:${color}">${initials}</div>`
+      : `<div class="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0" style="background:${color}">${initials}</div>`;
+    const ticks = c.fromMe ? chatTicks(c.status || 'SERVER_ACK') + ' ' : '';
+    const unread = c.unreadCount > 0 ? `<span class="bg-[#25D366] text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shrink-0">${c.unreadCount > 99 ? '99+' : c.unreadCount}</span>` : '';
+    const pinIcon = c.pinned ? '<svg class="w-3 h-3 text-gray-400 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2z"/></svg>' : '';
+    return `<div class="chat-list-item flex items-center gap-3 px-4 py-3 cursor-pointer border-b border-gray-50 ${isActive?'active':''}" onclick="chatOpenConversation('${c.id}')" oncontextmenu="chatListContextMenu(event,'${c.id}')">
+      <div class="shrink-0 relative">${avatar}</div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center justify-between">
+          <p class="text-sm font-medium text-gray-900 truncate">${chatEsc(c.name)}</p>
+          <span class="text-xs ${c.unreadCount>0?'text-[#25D366] font-semibold':'text-gray-400'} shrink-0 ml-2">${chatFormatListDate(c.lastMsgTimestamp)}</span>
+        </div>
+        <div class="flex items-center justify-between mt-0.5">
+          <p class="text-xs text-gray-500 truncate">${ticks}${chatEsc(c.lastMessage||'')}</p>
+          <div class="flex items-center gap-1 shrink-0">${pinIcon}${unread}</div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // ── Chat list context menu (right-click on conversation) ─────────────
+  function chatListContextMenu(event, jid) {
+    event.preventDefault();
+    event.stopPropagation();
+    document.querySelectorAll('.chat-ctx-menu').forEach(e => e.remove());
+    const conv = chatState.conversations.find(c => c.id === jid);
+    if (!conv) return;
+    const menu = document.createElement('div');
+    menu.className = 'chat-ctx-menu';
+    menu.style.left = event.clientX + 'px';
+    menu.style.top = event.clientY + 'px';
+    let items = '';
+    if (conv.archived) {
+      items += `<button onclick="chatArchiveChat('${jid}',false);this.parentElement.remove()">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+        Unarchive</button>`;
+    } else {
+      items += `<button onclick="chatArchiveChat('${jid}',true);this.parentElement.remove()">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+        Archive</button>`;
+    }
+    if (conv.unreadCount > 0) {
+      items += `<button onclick="chatMarkRead('${jid}');this.parentElement.remove()">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        Mark as read</button>`;
+    }
+    items += `<button onclick="chatDeleteChat('${jid}');this.parentElement.remove()">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+      Delete chat</button>`;
+    menu.innerHTML = items;
+    document.body.appendChild(menu);
+    const close = (e) => { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', close); } };
+    setTimeout(() => document.addEventListener('click', close), 10);
+  }
+
+  // ── Archive / Unarchive chat ─────────────────────────────────────────
+  async function chatArchiveChat(jid, archive) {
+    const conv = chatState.conversations.find(c => c.id === jid);
+    let apiSuccess = false;
+
+    // Try to call the API to archive/unarchive on WhatsApp's side
+    try {
+      const cfg = getCfg();
+      // Get last message key — first from conversation data, then from cached messages
+      let lastMsgKey = conv?._lastMsgKey || null;
+      if (!lastMsgKey || !lastMsgKey.id) {
+        // Fall back to cached messages
+        const cached = await chatDbGetByIndex('chat_messages', 'remoteJid', jid);
+        if (cached.length) {
+          cached.sort((a, b) => b.timestamp - a.timestamp);
+          lastMsgKey = { remoteJid: jid, fromMe: cached[0].fromMe, id: cached[0].id };
+        }
+      }
+      if (!lastMsgKey || !lastMsgKey.id) {
+        // Fetch messages first to get a valid message ID
+        const msgs = await chatFetchMessages(jid);
+        if (msgs.length) {
+          const last = msgs[msgs.length - 1];
+          lastMsgKey = { remoteJid: jid, fromMe: last.fromMe, id: last.id };
+        }
+      }
+      if (lastMsgKey && lastMsgKey.id) {
+        await chatApiCall(`/chat/archiveChat/${cfg.instance}`, {
+          lastMessage: { key: lastMsgKey },
+          archive: archive,
+          chat: jid,
+        });
+        apiSuccess = true;
+      }
+    } catch (e) { console.warn('chatArchiveChat API error:', e); }
+
+    // Always persist locally regardless of API success
+    let archivedJids = chatGetArchivedJids();
+    if (archive) {
+      if (!archivedJids.includes(jid)) archivedJids.push(jid);
+    } else {
+      archivedJids = archivedJids.filter(j => j !== jid);
+    }
+    chatSaveArchivedJids(archivedJids);
+
+    // Update local state
+    if (conv) conv.archived = archive;
+    if (chatState.activeJid === jid && archive) chatCloseConversation();
+    chatRenderList();
+    chatUpdateUnreadBadge();
+
+    if (!apiSuccess && archive) {
+      console.warn('Archive saved locally only — API call failed or no message ID available');
+    }
+  }
+
+  // ── Delete chat (local only — clear from list) ───────────────────────
+  async function chatDeleteChat(jid) {
+    if (!confirm('Delete this chat? Messages will be cleared from your view.')) return;
+    try {
+      const cfg = getCfg();
+      await chatApiCall(`/chat/deleteChat/${cfg.instance}`, { chat: jid }, 'DELETE');
+    } catch (e) { /* may not be supported, just remove locally */ }
+    chatState.conversations = chatState.conversations.filter(c => c.id !== jid);
+    if (chatState.activeJid === jid) chatCloseConversation();
+    chatRenderList();
+  }
+
+  function chatEsc(s) { if(!s) return ''; const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+  function chatFilterList(query) {
+    chatState.searchQuery = query;
+    chatRenderList();
+  }
+
+  // ── Update sidebar unread badge ──────────────────────────────────────
+  function chatUpdateUnreadBadge() {
+    const total = chatState.conversations.reduce((s, c) => s + (c.unreadCount || 0), 0);
+    const badge = document.getElementById('chat-unread-badge');
+    if (!badge) return;
+    if (total > 0) { badge.textContent = total > 99 ? '99+' : total; badge.classList.remove('hidden'); }
+    else badge.classList.add('hidden');
+  }
+
+  // ── Init / Destroy ───────────────────────────────────────────────────
+  async function chatInit() {
+    if (chatState.initialized) { chatStartPolling(); return; }
+    chatState.initialized = true;
+    // Load from cache first for instant render
+    try {
+      const cached = await chatDbGetAll('chat_conversations');
+      if (cached.length) {
+        cached.sort((a, b) => (b.lastMsgTimestamp || 0) - (a.lastMsgTimestamp || 0));
+        chatState.conversations = cached;
+        chatRenderList();
+      }
+      const cachedContacts = await chatDbGetAll('chat_contacts');
+      cachedContacts.forEach(c => { chatState.contacts[c.id] = c; });
+    } catch (e) { console.warn('chatInit cache load error:', e); }
+    // Fetch fresh data
+    await chatFetchContacts();
+    await chatFetchConversations();
+    chatRenderList();
+    chatUpdateUnreadBadge();
+    chatStartPolling();
+  }
+
+  function chatDestroy() {
+    if (chatState.chatListPollTimer) { clearInterval(chatState.chatListPollTimer); chatState.chatListPollTimer = null; }
+    if (chatState.pollTimer) { clearInterval(chatState.pollTimer); chatState.pollTimer = null; }
+    if (chatState.typingTimer) { clearTimeout(chatState.typingTimer); chatState.typingTimer = null; }
+  }
+
+  function chatStartPolling() {
+    if (chatState.chatListPollTimer) clearInterval(chatState.chatListPollTimer);
+    chatState.chatListPollTimer = setInterval(async () => {
+      await chatFetchConversations();
+      chatRenderList();
+      chatUpdateUnreadBadge();
+    }, 5000);
+  }
+
+  // ── Open / close conversation ────────────────────────────────────────
+  async function chatOpenConversation(jid) {
+    chatState.activeJid = jid;
+    chatState.allFetchedMessages = []; // full fetched set for this jid
+    chatState.historyFullyLoaded = false;
+    // Update UI
+    document.getElementById('chat-empty-state').style.display = 'none';
+    const active = document.getElementById('chat-active');
+    active.classList.remove('hidden');
+    active.style.display = 'flex';
+    // Update header
+    const name = chatResolveName(jid);
+    document.getElementById('chat-header-name').textContent = name;
+    document.getElementById('chat-header-status').textContent = chatIsGroup(jid) ? 'Group' : chatExtractNumber(jid);
+    const avatarEl = document.getElementById('chat-header-avatar');
+    const contact = chatState.contacts[jid];
+    const conv = chatState.conversations.find(c => c.id === jid);
+    const picUrl = (contact && contact.profilePicUrl) || (conv && conv.profilePicUrl) || '';
+    const color = chatAvatarColor(jid);
+    if (picUrl) {
+      avatarEl.innerHTML = `<img src="${picUrl}" class="w-10 h-10 rounded-full object-cover" onerror="this.parentElement.innerHTML='${chatInitials(name)}';this.parentElement.style.background='${color}'"/>`;
+    } else {
+      avatarEl.textContent = chatInitials(name);
+      avatarEl.style.background = color;
+    }
+    // Hide schedule panel if open
+    const schedPanel = document.getElementById('chat-schedule-panel');
+    if (schedPanel) schedPanel.classList.add('hidden');
+    // Highlight in list
+    chatRenderList();
+    // Load messages — from cache first, then API
+    const msgEl = document.getElementById('chat-messages');
+    msgEl.innerHTML = '<div class="flex justify-center py-8"><div class="typing-dots"><span></span><span></span><span></span></div></div>';
+    // Attach scroll handler for loading older messages
+    msgEl.onscroll = chatOnMessagesScroll;
+    try {
+      const cached = await chatDbGetByIndex('chat_messages', 'remoteJid', jid);
+      if (cached.length) {
+        cached.sort((a, b) => a.timestamp - b.timestamp);
+        chatState.allFetchedMessages = cached;
+        // Show last N messages initially
+        chatState.messages = cached.slice(-CHAT_PAGE_SIZE);
+        chatState.historyFullyLoaded = cached.length <= CHAT_PAGE_SIZE;
+        chatRenderMessages();
+        chatScrollToBottom(false);
+      }
+    } catch (e) {}
+    // Fetch fresh from API
+    const fresh = await chatFetchMessages(jid);
+    if (fresh.length) {
+      const all = fresh.sort((a, b) => a.timestamp - b.timestamp);
+      chatState.allFetchedMessages = all;
+      chatState.messages = all.slice(-CHAT_PAGE_SIZE);
+      chatState.historyFullyLoaded = all.length <= CHAT_PAGE_SIZE;
+    } else if (!chatState.allFetchedMessages.length) {
+      chatState.allFetchedMessages = [];
+      chatState.messages = [];
+      chatState.historyFullyLoaded = true;
+    }
+    chatRenderMessages();
+    chatScrollToBottom(false);
+    // Update header name again (may have been updated by pushName extraction)
+    document.getElementById('chat-header-name').textContent = chatResolveName(jid);
+    // Mark as read
+    chatMarkRead(jid);
+    // Start message polling
+    if (chatState.pollTimer) clearInterval(chatState.pollTimer);
+    chatState.pollTimer = setInterval(() => chatPollMessages(), 3000);
+  }
+
+  // ── Chat history pagination constants ────────────────────────────────
+  const CHAT_PAGE_SIZE = 50;
+
+  // ── Scroll handler: load older messages when scrolling to top ────────
+  function chatOnMessagesScroll() {
+    const el = document.getElementById('chat-messages');
+    if (!el || chatState.historyFullyLoaded) return;
+    if (el.scrollTop < 100) {
+      chatLoadOlderMessages();
+    }
+  }
+
+  function chatLoadOlderMessages() {
+    if (chatState.historyFullyLoaded) return;
+    const all = chatState.allFetchedMessages;
+    const currentOldest = chatState.messages.length > 0 ? chatState.messages[0].timestamp : Infinity;
+    // Find messages older than what we currently show
+    const older = all.filter(m => m.timestamp < currentOldest);
+    if (!older.length) {
+      chatState.historyFullyLoaded = true;
+      return;
+    }
+    // Take the most recent PAGE_SIZE of the older messages
+    const page = older.slice(-CHAT_PAGE_SIZE);
+    chatState.messages = [...page, ...chatState.messages];
+    if (older.length <= CHAT_PAGE_SIZE) chatState.historyFullyLoaded = true;
+    // Preserve scroll position
+    const msgEl = document.getElementById('chat-messages');
+    const prevScrollHeight = msgEl.scrollHeight;
+    chatRenderMessages();
+    // Restore scroll position so it doesn't jump
+    const newScrollHeight = msgEl.scrollHeight;
+    msgEl.scrollTop = newScrollHeight - prevScrollHeight;
+  }
+
+  function chatCloseConversation() {
+    chatState.activeJid = null;
+    chatState.messages = [];
+    chatState.allFetchedMessages = [];
+    chatState.historyFullyLoaded = false;
+    chatState.replyTo = null;
+    if (chatState.pollTimer) { clearInterval(chatState.pollTimer); chatState.pollTimer = null; }
+    const msgEl = document.getElementById('chat-messages');
+    if (msgEl) msgEl.onscroll = null;
+    document.getElementById('chat-active').style.display = 'none';
+    document.getElementById('chat-active').classList.add('hidden');
+    document.getElementById('chat-empty-state').style.display = 'flex';
+    chatRenderList();
+  }
+
+  // ── Poll messages for active conversation ────────────────────────────
+  async function chatPollMessages() {
+    if (!chatState.activeJid) return;
+    const jid = chatState.activeJid;
+    const fresh = await chatFetchMessages(jid);
+    if (!fresh.length) return;
+    const existingIds = new Set(chatState.messages.map(m => m.id));
+    const allIds = new Set(chatState.allFetchedMessages.map(m => m.id));
+    const newMsgs = fresh.filter(m => !existingIds.has(m.id));
+    const newForAll = fresh.filter(m => !allIds.has(m.id));
+    // Update status of existing messages
+    fresh.forEach(fm => {
+      const ex = chatState.messages.find(m => m.id === fm.id);
+      if (ex && ex.status !== fm.status) ex.status = fm.status;
+      const exAll = chatState.allFetchedMessages.find(m => m.id === fm.id);
+      if (exAll && exAll.status !== fm.status) exAll.status = fm.status;
+    });
+    // Append new messages to both arrays
+    if (newForAll.length) {
+      chatState.allFetchedMessages.push(...newForAll);
+      chatState.allFetchedMessages.sort((a, b) => a.timestamp - b.timestamp);
+    }
+    if (newMsgs.length) {
+      chatState.messages.push(...newMsgs);
+      chatState.messages.sort((a, b) => a.timestamp - b.timestamp);
+      chatRenderMessages();
+      chatScrollToBottom(true);
+      chatMarkRead(jid);
+    } else {
+      // Just re-render for status updates
+      chatRenderMessages();
+    }
+  }
+
+  // ── Mark messages as read ────────────────────────────────────────────
+  async function chatMarkRead(jid) {
+    try {
+      const cfg = getCfg();
+      const unreadMsgs = chatState.messages.filter(m => !m.fromMe && m.status !== 'READ');
+      if (!unreadMsgs.length) return;
+      await chatApiCall(`/chat/markMessageAsRead/${cfg.instance}`, {
+        readMessages: unreadMsgs.map(m => ({ remoteJid: jid, fromMe: false, id: m.id }))
+      });
+      // Update local unread count
+      const conv = chatState.conversations.find(c => c.id === jid);
+      if (conv) { conv.unreadCount = 0; chatRenderList(); chatUpdateUnreadBadge(); }
+    } catch (e) { console.warn('chatMarkRead error:', e); }
+  }
+
+  // ── Render messages ──────────────────────────────────────────────────
+  function chatRenderMessages() {
+    const el = document.getElementById('chat-messages');
+    if (!chatState.messages.length) {
+      el.innerHTML = '<div class="flex items-center justify-center h-full text-gray-400 text-sm">No messages yet. Say hello!</div>';
+      return;
+    }
+    let html = '';
+    // Show "scroll up for more" indicator if there's older history
+    if (!chatState.historyFullyLoaded) {
+      html += '<div class="flex justify-center py-3"><span class="text-xs text-gray-400 bg-white/80 px-3 py-1 rounded-full">↑ Scroll up for older messages</span></div>';
+    }
+    let lastDateStr = '';
+    chatState.messages.forEach(m => {
+      // Date separator
+      const dateStr = chatFormatDateSep(m.timestamp);
+      if (dateStr !== lastDateStr) {
+        html += `<div class="flex justify-center my-3"><span class="chat-date-sep">${dateStr}</span></div>`;
+        lastDateStr = dateStr;
+      }
+      html += chatRenderBubble(m);
+    });
+    el.innerHTML = html;
+  }
+
+  function chatRenderBubble(m) {
+    const align = m.fromMe ? 'justify-end' : 'justify-start';
+    const bubbleCls = m.fromMe ? 'chat-bubble-out' : 'chat-bubble-in';
+    const maxW = 'max-w-[65%]';
+
+    // Quoted message
+    let quotedHtml = '';
+    if (m.quotedMsg) {
+      const qName = m.quotedMsg.fromMe ? 'You' : (m.quotedMsg.participant ? chatResolveName(m.quotedMsg.participant) : '');
+      const qBg = m.fromMe ? 'bg-[#c8e6c0]' : 'bg-gray-100';
+      quotedHtml = `<div class="${qBg} rounded-md px-3 py-1.5 mb-1 border-l-4 border-green-600 cursor-pointer text-xs" onclick="chatScrollToMsg('${m.quotedMsg.id}')">
+        ${qName ? `<p class="font-semibold text-green-800">${chatEsc(qName)}</p>` : ''}
+        <p class="text-gray-600 truncate">${chatEsc(m.quotedMsg.text)}</p>
+      </div>`;
+    }
+
+    // Group sender name
+    let senderHtml = '';
+    if (!m.fromMe && chatIsGroup(m.remoteJid) && m.pushName) {
+      senderHtml = `<p class="text-xs font-semibold mb-0.5" style="color:${chatAvatarColor(m.pushName)}">${chatEsc(m.pushName)}</p>`;
+    }
+
+    // Content
+    let contentHtml = '';
+    switch (m.type) {
+      case 'text':
+        contentHtml = `<p class="text-sm text-gray-900 whitespace-pre-wrap break-words">${chatLinkify(chatEsc(m.text))}</p>`;
+        break;
+      case 'image':
+        const imgSrc = m.mediaUrl || (m.thumbBase64 ? `data:image/jpeg;base64,${m.thumbBase64}` : '');
+        contentHtml = imgSrc
+          ? `<img src="${imgSrc}" class="rounded-md max-w-full cursor-pointer mb-1" onclick="chatOpenLightbox('${imgSrc}')" loading="lazy" style="max-height:300px"/>`
+          : '';
+        if (m.caption) contentHtml += `<p class="text-sm text-gray-900">${chatEsc(m.caption)}</p>`;
+        break;
+      case 'video':
+        contentHtml = m.mediaUrl
+          ? `<video src="${m.mediaUrl}" controls class="rounded-md max-w-full mb-1" style="max-height:300px"></video>`
+          : '<p class="text-sm text-gray-500 italic">🎥 Video</p>';
+        if (m.caption) contentHtml += `<p class="text-sm text-gray-900">${chatEsc(m.caption)}</p>`;
+        break;
+      case 'audio':
+        contentHtml = m.mediaUrl
+          ? `<audio src="${m.mediaUrl}" controls class="max-w-full"></audio>`
+          : '<p class="text-sm text-gray-500 italic">🎤 Audio</p>';
+        break;
+      case 'document':
+        contentHtml = `<a href="${m.mediaUrl||'#'}" target="_blank" class="flex items-center gap-2 text-blue-600 hover:underline py-1">
+          <svg class="w-8 h-8 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+          <span class="text-sm truncate">${chatEsc(m.fileName||'Document')}</span>
+        </a>`;
+        if (m.caption) contentHtml += `<p class="text-sm text-gray-900">${chatEsc(m.caption)}</p>`;
+        break;
+      case 'sticker':
+        contentHtml = m.mediaUrl ? `<img src="${m.mediaUrl}" class="max-w-[150px]" loading="lazy"/>` : '<p class="text-2xl">🏷</p>';
+        break;
+      case 'location':
+        const coords = m.text.replace('📍 ', '').split(',');
+        contentHtml = `<a href="https://www.google.com/maps?q=${coords[0]},${coords[1]}" target="_blank" class="text-sm text-blue-600 hover:underline">📍 Open in Maps</a>`;
+        break;
+      case 'contact':
+        contentHtml = `<p class="text-sm text-gray-900">${chatEsc(m.text)}</p>`;
+        break;
+      default:
+        contentHtml = `<p class="text-sm text-gray-900 whitespace-pre-wrap break-words">${chatEsc(m.text || `[${m.type}]`)}</p>`;
+    }
+
+    // Timestamp + ticks
+    const time = chatFormatTime(m.timestamp);
+    const ticks = m.fromMe ? ' ' + chatTicks(m.status) : '';
+    const timeHtml = `<div class="flex items-center justify-end gap-1 mt-0.5"><span class="text-[10px] text-gray-500">${time}</span>${ticks}</div>`;
+
+    return `<div class="flex ${align} mb-1 group" data-msg-id="${m.id}">
+      <div class="${maxW} ${bubbleCls} px-2.5 py-1.5 shadow-sm relative" oncontextmenu="chatContextMenu(event,'${m.id}')">
+        ${senderHtml}${quotedHtml}${contentHtml}${timeHtml}
+      </div>
+    </div>`;
+  }
+
+  function chatLinkify(text) {
+    return text.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" class="text-blue-600 underline">$1</a>');
+  }
+
+  function chatScrollToBottom(smooth) {
+    const el = document.getElementById('chat-messages');
+    if (!el) return;
+    if (smooth) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    else el.scrollTop = el.scrollHeight;
+  }
+
+  function chatScrollToMsg(id) {
+    const el = document.querySelector(`[data-msg-id="${id}"]`);
+    if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.style.background = '#fef3c7'; setTimeout(() => el.style.background = '', 1500); }
+  }
+
+  // ── Send text message ────────────────────────────────────────────────
+  async function chatSend() {
+    const input = document.getElementById('chat-input');
+    const text = input.value.trim();
+    if (!text || !chatState.activeJid) return;
+    input.value = '';
+    chatAutoResize(input);
+
+    const jid = chatState.activeJid;
+    const number = chatExtractNumber(jid);
+    const now = Date.now();
+
+    // Optimistic local message
+    const localMsg = {
+      id: 'local_' + now,
+      remoteJid: jid,
+      fromMe: true,
+      timestamp: now,
+      type: 'text',
+      text,
+      caption: '', mediaUrl: '', mimetype: '', fileName: '', thumbBase64: '',
+      quotedMsg: chatState.replyTo ? { id: chatState.replyTo.id, text: chatState.replyTo.text, fromMe: chatState.replyTo.fromMe } : null,
+      status: 'sent',
+      pushName: '',
+    };
+    chatState.messages.push(localMsg);
+    chatRenderMessages();
+    chatScrollToBottom(true);
+
+    // Build API body
+    const body = { number, text };
+    if (chatState.replyTo) {
+      body.quoted = { key: { remoteJid: jid, fromMe: chatState.replyTo.fromMe, id: chatState.replyTo.id } };
+    }
+    chatCancelReply();
+
+    try {
+      const cfg = getCfg();
+      const result = await chatApiCall(`/message/sendText/${cfg.instance}`, body);
+      // Update local message with server ID
+      if (result && result.key) {
+        localMsg.id = result.key.id;
+        localMsg.status = 'SERVER_ACK';
+      }
+    } catch (e) {
+      localMsg.status = 'error';
+      console.warn('chatSend error:', e);
+    }
+    chatRenderMessages();
+    chatScrollToBottom(false);
+  }
+
+  // ── Schedule send ──────────────────────────────────────────────────
+  function chatToggleSchedule() {
+    const panel = document.getElementById('chat-schedule-panel');
+    if (!panel) return;
+    const isHidden = panel.classList.contains('hidden');
+    panel.classList.toggle('hidden');
+    if (isHidden) {
+      // Default to 1 hour from now
+      const dt = new Date(Date.now() + 3600000);
+      dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
+      document.getElementById('chat-schedule-dt').value = dt.toISOString().slice(0, 16);
+    }
+  }
+
+  async function chatScheduleSend() {
+    const input = document.getElementById('chat-input');
+    const text = input.value.trim();
+    if (!text) return alert('Type a message first.');
+    if (!chatState.activeJid) return;
+    const dt = document.getElementById('chat-schedule-dt').value;
+    if (!dt) return alert('Pick a date and time.');
+    if (new Date(dt).getTime() <= Date.now()) return alert('Scheduled time must be in the future.');
+
+    const jid = chatState.activeJid;
+    const number = chatExtractNumber(jid);
+    const job = {
+      id: `job_${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      scheduledAt: new Date(dt).toISOString(),
+      type: 'compose',
+      recipients: [number],
+      items: [{ type: 'text', data: { text } }],
+      status: 'pending'
+    };
+    await saveJob(job);
+    input.value = '';
+    chatAutoResize(input);
+    document.getElementById('chat-schedule-panel').classList.add('hidden');
+    const name = chatResolveName(jid);
+    alert(`Message scheduled for ${new Date(dt).toLocaleString()} to ${name}. Keep this tab open.`);
+  }
+
+  // ── Send media ───────────────────────────────────────────────────────
+  async function chatSendMediaMsg(file) {
+    if (!file || !chatState.activeJid) return;
+    const jid = chatState.activeJid;
+    const number = chatExtractNumber(jid);
+    const isImage = file.type.startsWith('image/');
+    const isVideo = file.type.startsWith('video/');
+    const isAudio = file.type.startsWith('audio/');
+
+    const base64 = await new Promise((res) => {
+      const reader = new FileReader();
+      reader.onload = () => res(reader.result);
+      reader.readAsDataURL(file);
+    });
+
+    const now = Date.now();
+    const localMsg = {
+      id: 'local_' + now,
+      remoteJid: jid, fromMe: true, timestamp: now,
+      type: isImage ? 'image' : isVideo ? 'video' : isAudio ? 'audio' : 'document',
+      text: '', caption: '', mediaUrl: base64, mimetype: file.type, fileName: file.name, thumbBase64: '',
+      quotedMsg: null, status: 'sent', pushName: '',
+    };
+    chatState.messages.push(localMsg);
+    chatRenderMessages();
+    chatScrollToBottom(true);
+
+    try {
+      const cfg = getCfg();
+      let endpoint, body;
+      if (isAudio) {
+        endpoint = `/message/sendWhatsAppAudio/${cfg.instance}`;
+        body = { number, audio: base64 };
+      } else {
+        endpoint = `/message/sendMedia/${cfg.instance}`;
+        body = {
+          number,
+          mediatype: isImage ? 'image' : isVideo ? 'video' : 'document',
+          media: base64,
+          mimetype: file.type,
+          caption: '',
+          fileName: file.name,
+        };
+      }
+      const result = await chatApiCall(endpoint, body);
+      if (result && result.key) { localMsg.id = result.key.id; localMsg.status = 'SERVER_ACK'; }
+    } catch (e) {
+      localMsg.status = 'error';
+      console.warn('chatSendMedia error:', e);
+    }
+    chatRenderMessages();
+  }
+
+  // ── Reply ────────────────────────────────────────────────────────────
+  function chatReplyTo(msgId) {
+    const msg = chatState.messages.find(m => m.id === msgId);
+    if (!msg) return;
+    chatState.replyTo = { id: msg.id, text: msg.text || msg.caption || `[${msg.type}]`, fromMe: msg.fromMe };
+    const bar = document.getElementById('chat-reply-bar');
+    bar.classList.remove('hidden');
+    bar.style.display = 'flex';
+    document.getElementById('chat-reply-name').textContent = msg.fromMe ? 'You' : chatResolveName(msg.remoteJid);
+    document.getElementById('chat-reply-text').textContent = chatState.replyTo.text;
+    document.getElementById('chat-input').focus();
+  }
+
+  function chatCancelReply() {
+    chatState.replyTo = null;
+    const bar = document.getElementById('chat-reply-bar');
+    bar.classList.add('hidden');
+    bar.style.display = 'none';
+  }
+
+  // ── Reactions ────────────────────────────────────────────────────────
+  const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+  function chatReactTo(msgId) {
+    // Remove existing picker
+    document.querySelectorAll('.chat-react-picker').forEach(e => e.remove());
+    const bubble = document.querySelector(`[data-msg-id="${msgId}"]`);
+    if (!bubble) return;
+    const picker = document.createElement('div');
+    picker.className = 'chat-react-picker';
+    picker.style.top = '-40px'; picker.style.right = '0';
+    picker.innerHTML = QUICK_REACTIONS.map(e => `<button onclick="chatSendReaction('${msgId}','${e}')">${e}</button>`).join('');
+    bubble.querySelector('.relative, div').appendChild(picker);
+    setTimeout(() => picker.remove(), 5000);
+  }
+
+  async function chatSendReaction(msgId, emoji) {
+    document.querySelectorAll('.chat-react-picker').forEach(e => e.remove());
+    if (!chatState.activeJid) return;
+    try {
+      const cfg = getCfg();
+      await chatApiCall(`/message/sendReaction/${cfg.instance}`, {
+        key: { remoteJid: chatState.activeJid, fromMe: chatState.messages.find(m=>m.id===msgId)?.fromMe || false, id: msgId },
+        reaction: emoji,
+      });
+    } catch (e) { console.warn('chatSendReaction error:', e); }
+  }
+
+  // ── Context menu ─────────────────────────────────────────────────────
+  function chatContextMenu(event, msgId) {
+    event.preventDefault();
+    document.querySelectorAll('.chat-ctx-menu').forEach(e => e.remove());
+    const msg = chatState.messages.find(m => m.id === msgId);
+    if (!msg) return;
+    const menu = document.createElement('div');
+    menu.className = 'chat-ctx-menu';
+    menu.style.left = event.clientX + 'px';
+    menu.style.top = event.clientY + 'px';
+    let items = `<button onclick="chatReplyTo('${msgId}');this.parentElement.remove()">↩ Reply</button>`;
+    items += `<button onclick="chatReactTo('${msgId}');this.parentElement.remove()">😀 React</button>`;
+    if (msg.type === 'text' && msg.text) items += `<button onclick="navigator.clipboard.writeText(${JSON.stringify(msg.text)});this.parentElement.remove()">📋 Copy</button>`;
+    if (msg.fromMe) items += `<button onclick="chatDeleteMsg('${msgId}');this.parentElement.remove()">🗑 Delete</button>`;
+    menu.innerHTML = items;
+    document.body.appendChild(menu);
+    const close = (e) => { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', close); } };
+    setTimeout(() => document.addEventListener('click', close), 10);
+  }
+
+  // ── Delete message ───────────────────────────────────────────────────
+  async function chatDeleteMsg(msgId) {
+    if (!confirm('Delete this message for everyone?')) return;
+    try {
+      const cfg = getCfg();
+      const msg = chatState.messages.find(m => m.id === msgId);
+      if (!msg) return;
+      await chatApiCall(`/chat/deleteMessageForEveryone/${cfg.instance}`, {
+        id: msgId,
+        remoteJid: chatState.activeJid,
+        fromMe: msg.fromMe,
+      }, 'DELETE');
+      chatState.messages = chatState.messages.filter(m => m.id !== msgId);
+      chatRenderMessages();
+    } catch (e) { console.warn('chatDeleteMsg error:', e); }
+  }
+
+  // ── Typing indicator ─────────────────────────────────────────────────
+  function chatOnTyping() {
+    if (!chatState.activeJid) return;
+    if (chatState.typingTimer) clearTimeout(chatState.typingTimer);
+    chatSetPresence('composing');
+    chatState.typingTimer = setTimeout(() => chatSetPresence('paused'), 3000);
+  }
+
+  async function chatSetPresence(state) {
+    try {
+      const cfg = getCfg();
+      await chatApiCall(`/chat/updatePresence/${cfg.instance}`, {
+        number: chatExtractNumber(chatState.activeJid),
+        presence: state,
+      });
+    } catch (e) {}
+  }
+
+  // ── Auto-resize textarea ─────────────────────────────────────────────
+  function chatAutoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 128) + 'px';
+  }
+
+  // ── Attach media ─────────────────────────────────────────────────────
+  function chatAttachMedia() {
+    document.getElementById('chat-file-input').click();
+  }
+  function chatOnFileSelected(input) {
+    if (input.files && input.files[0]) {
+      chatSendMediaMsg(input.files[0]);
+      input.value = '';
+    }
+  }
+
+  // ── Emoji picker ─────────────────────────────────────────────────────
+  const EMOJI_SET = ['😀','😁','😂','🤣','😃','😄','😅','😆','😉','😊','😋','😎','😍','🥰','😘','😗','😙','😚','🙂','🤗','🤔','😐','😑','😶','🙄','😏','😣','😥','😮','🤐','😯','😪','😫','🥱','😴','😌','😛','😜','😝','🤤','😒','😓','😔','😕','🙃','🤑','😲','🙁','😖','😞','😟','😤','😢','😭','😦','😧','😨','😩','🤯','😬','😰','😱','🥵','🥶','😳','🤪','😵','🥳','😠','😡','🤬','😈','👿','💀','☠️','💩','🤡','👹','👺','👻','👽','👾','🤖','👋','🤚','✋','🖖','👌','🤌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','👐','🤲','🤝','🙏','✍️','💪','🦾','❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💝','💘','🔥','⭐','🌟','✨','💫','🎉','🎊','🎈','🎁','🏆','🥇','⚽','🏀','🏈','⚾','🎾','🎮','🎯','🎲','🧩','♟️','🎭','🎨','🎬','🎤','🎧','🎼','🎹','🎷','🎺','🎸','🪕','🥁'];
+  let emojiPickerBuilt = false;
+
+  function chatToggleEmoji() {
+    const panel = document.getElementById('chat-emoji-panel');
+    const isHidden = panel.classList.contains('hidden');
+    panel.classList.toggle('hidden');
+    if (isHidden && !emojiPickerBuilt) {
+      emojiPickerBuilt = true;
+      panel.querySelector('.emoji-picker').innerHTML = EMOJI_SET.map(e => `<button onclick="chatInsertEmoji('${e}')">${e}</button>`).join('');
+    }
+  }
+
+  function chatInsertEmoji(emoji) {
+    const input = document.getElementById('chat-input');
+    const start = input.selectionStart || input.value.length;
+    input.value = input.value.slice(0, start) + emoji + input.value.slice(start);
+    input.focus();
+    input.setSelectionRange(start + emoji.length, start + emoji.length);
+    chatAutoResize(input);
+  }
+
+  // ── Image lightbox ───────────────────────────────────────────────────
+  function chatOpenLightbox(src) {
+    const lb = document.getElementById('chat-lightbox');
+    document.getElementById('chat-lightbox-img').src = src;
+    lb.style.display = 'flex';
+  }
+  function chatCloseLightbox() {
+    document.getElementById('chat-lightbox').style.display = 'none';
+    document.getElementById('chat-lightbox-img').src = '';
+  }
+
+  // ── New chat modal ───────────────────────────────────────────────────
+  function chatStartNew() {
+    const modal = document.getElementById('chat-new-modal');
+    modal.style.display = 'flex';
+    document.getElementById('chat-new-number').value = '';
+    document.getElementById('chat-new-search').value = '';
+    chatRenderNewContacts('');
+    document.getElementById('chat-new-number').focus();
+  }
+  function chatCloseNewModal() {
+    document.getElementById('chat-new-modal').style.display = 'none';
+  }
+  function chatOpenNewByNumber() {
+    const raw = document.getElementById('chat-new-number').value.trim();
+    if (!raw) return;
+    const num = validatePhone(raw);
+    if (!num) { alert('Invalid phone number'); return; }
+    const jid = num + '@s.whatsapp.net';
+    chatCloseNewModal();
+    chatOpenConversation(jid);
+  }
+  function chatFilterNewContacts(query) {
+    chatRenderNewContacts(query);
+  }
+  function chatRenderNewContacts(query) {
+    const el = document.getElementById('chat-new-contacts');
+    const q = query.toLowerCase();
+    let contacts = Object.values(chatState.contacts).filter(c => c.id && !chatIsGroup(c.id));
+    if (q) contacts = contacts.filter(c => (c.pushName||'').toLowerCase().includes(q) || c.phone.includes(q));
+    contacts = contacts.slice(0, 50);
+    if (!contacts.length) { el.innerHTML = '<p class="text-xs text-gray-400 text-center py-2">No contacts found</p>'; return; }
+    el.innerHTML = contacts.map(c => {
+      const color = chatAvatarColor(c.id);
+      return `<div class="flex items-center gap-3 px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer" onclick="chatCloseNewModal();chatOpenConversation('${c.id}')">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style="background:${color}">${chatInitials(c.displayName||c.pushName||c.phone)}</div>
+        <div class="min-w-0">
+          <p class="text-sm font-medium text-gray-900 truncate">${chatEsc(c.displayName||c.pushName||c.phone)}</p>
+          <p class="text-xs text-gray-400">${c.phone}</p>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Search within messages (simple highlight) ────────────────────────
+  function chatSearchMessages() {
+    const query = prompt('Search messages:');
+    if (!query) return;
+    const q = query.toLowerCase();
+    const match = chatState.messages.find(m => (m.text||'').toLowerCase().includes(q) || (m.caption||'').toLowerCase().includes(q));
+    if (match) chatScrollToMsg(match.id);
+    else alert('No match found');
+  }
+
+  // ── Close emoji picker on outside click ──────────────────────────────
+  document.addEventListener('click', function(e) {
+    const panel = document.getElementById('chat-emoji-panel');
+    if (panel && !panel.classList.contains('hidden')) {
+      if (!panel.contains(e.target) && !e.target.closest('[onclick*="chatToggleEmoji"]')) {
+        panel.classList.add('hidden');
+      }
+    }
+  });
+
+  // Close lightbox on Escape
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      chatCloseLightbox();
+      chatCloseNewModal();
+      document.querySelectorAll('.chat-ctx-menu,.chat-react-picker').forEach(el => el.remove());
+    }
+  });
 </script>
 </body>
 </html>
