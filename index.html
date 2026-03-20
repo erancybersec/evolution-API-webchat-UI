@@ -4221,12 +4221,25 @@
     if (chatState.initialized) { chatStartPolling(); return; }
     chatState.initialized = true;
     console.log('[Chat] chatInit starting...');
-    // One-time cleanup: previous bug may have saved ALL jids as archived in localStorage
-    // Clear it so only truly archived chats are detected fresh from the API
-    if (!localStorage.getItem('wa_chat_archive_v2_cleaned')) {
+    // One-time cleanup v3: previous bug saved ALL jids as archived in both
+    // localStorage and IndexedDB cache. Nuke both so chats reload fresh.
+    if (!localStorage.getItem('wa_chat_archive_v3_cleaned')) {
       localStorage.removeItem('wa_chat_archived');
-      localStorage.setItem('wa_chat_archive_v2_cleaned', '1');
-      console.log('[Chat] Cleared corrupted archive localStorage (one-time v2 fix)');
+      localStorage.removeItem('wa_chat_archive_v2_cleaned');
+      localStorage.setItem('wa_chat_archive_v3_cleaned', '1');
+      // Also clear cached conversations from IndexedDB (they have archived:true on everything)
+      try {
+        const db = await new Promise((resolve, reject) => {
+          const req = indexedDB.open(DB_NAME, DB_VERSION);
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => reject(req.error);
+        });
+        const tx = db.transaction('chat_conversations', 'readwrite');
+        tx.objectStore('chat_conversations').clear();
+        await new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onerror = reject; });
+        db.close();
+      } catch (e) { console.warn('[Chat] cleanup IndexedDB error:', e); }
+      console.log('[Chat] v3 cleanup: cleared corrupted archive data from localStorage + IndexedDB');
     }
     // Load from cache first for instant render
     try {
