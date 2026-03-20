@@ -2128,8 +2128,12 @@
     const opts = { method, headers: { 'Content-Type': 'application/json', 'apikey': cfg.apikey } };
     if (body !== null && method !== 'GET' && method !== 'DELETE') opts.body = JSON.stringify(body);
     const res = await fetch(url, opts);
-    if (!res.ok) throw new Error(`API ${res.status}: ${res.statusText}`);
-    return res.json();
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      console.warn(`[ChatAPI] ${method} ${endpoint} → ${res.status}`, data);
+      throw new Error(`API ${res.status}: ${res.statusText}`);
+    }
+    return data;
   }
 
   function setResponse(text, ok) {
@@ -3751,18 +3755,21 @@
   async function chatFetchConversations() {
     try {
       const cfg = getCfg();
-      // Fetch normal chats and try multiple strategies to get archived chats
-      // Strategy 1: normal fetch (may include archive field)
-      // Strategy 2: { archive: true } filter (may or may not work - known API bug #1822)
-      // Strategy 3: { where: { archived: true } } (alternative filter syntax)
-      const [normalData, archivedData, archivedData2] = await Promise.all([
-        chatApiCall(`/chat/findChats/${cfg.instance}`, {}).catch(() => []),
-        chatApiCall(`/chat/findChats/${cfg.instance}`, { archive: true }).catch(() => []),
-        chatApiCall(`/chat/findChats/${cfg.instance}`, { where: { archived: true } }).catch(() => []),
-      ]);
+      // Fetch normal chats first (fast path), then try archive strategies in background
+      const normalData = await chatApiCall(`/chat/findChats/${cfg.instance}`, {}).catch(() => []);
       const data = Array.isArray(normalData) ? normalData : [];
-      const archData = Array.isArray(archivedData) ? archivedData : [];
-      const archData2 = Array.isArray(archivedData2) ? archivedData2 : [];
+
+      // Try archive-specific calls in background (non-blocking)
+      // These may return same data as normal call (known API bug #1822)
+      let archData = [], archData2 = [];
+      try {
+        const [a1, a2] = await Promise.all([
+          chatApiCall(`/chat/findChats/${cfg.instance}`, { archive: true }).catch(() => []),
+          chatApiCall(`/chat/findChats/${cfg.instance}`, { where: { archived: true } }).catch(() => []),
+        ]);
+        archData = Array.isArray(a1) ? a1 : [];
+        archData2 = Array.isArray(a2) ? a2 : [];
+      } catch (e) { console.warn('[Chat] archive fetch strategies failed:', e); }
 
       // Deep-log raw responses once for debugging archive detection
       if (!chatState._rawFieldsLogged && (data.length || archData.length)) {
@@ -3864,6 +3871,8 @@
       });
       await chatDbPutMany('chat_conversations', convs);
       chatState.conversations = convs;
+      const archivedCount = convs.filter(c => c.archived).length;
+      console.log('[Chat] chatFetchConversations done: total=', convs.length, 'archived=', archivedCount, 'visible=', convs.length - archivedCount);
       return convs;
     } catch (e) { console.warn('chatFetchConversations error:', e); return []; }
   }
@@ -3872,16 +3881,21 @@
   async function chatFetchMessages(jid) {
     try {
       const cfg = getCfg();
+      console.log('[Chat] fetchMessages for:', jid);
       const data = await chatApiCall(`/chat/findMessages/${cfg.instance}`, {
         where: { key: { remoteJid: jid } }
       });
+      console.log('[Chat] findMessages raw response type:', typeof data, Array.isArray(data) ? 'array len=' + data.length : (data && data.messages ? 'obj with messages len=' + data.messages.length : 'other'));
       let msgs = Array.isArray(data) ? data : (data && Array.isArray(data.messages)) ? data.messages : [];
-      // Client-side filter (workaround for Evolution API bug)
+      // Client-side filter (workaround for Evolution API bug where remoteJid filter doesn't work)
+      const beforeFilter = msgs.length;
       msgs = msgs.filter(m => {
         const mJid = m.key?.remoteJid || m.remoteJid || '';
         return mJid === jid;
       });
+      console.log('[Chat] findMessages: total=', beforeFilter, 'after jid filter=', msgs.length);
       const parsed = msgs.map(m => chatParseMessage(m, jid)).filter(Boolean);
+      console.log('[Chat] parsed messages:', parsed.length);
       if (parsed.length) await chatDbPutMany('chat_messages', parsed);
       // Extract pushName from incoming messages to update contact names
       chatUpdateContactNamesFromMessages(jid, parsed);
@@ -4206,6 +4220,7 @@
   async function chatInit() {
     if (chatState.initialized) { chatStartPolling(); return; }
     chatState.initialized = true;
+    console.log('[Chat] chatInit starting...');
     // One-time cleanup: previous bug may have saved ALL jids as archived in localStorage
     // Clear it so only truly archived chats are detected fresh from the API
     if (!localStorage.getItem('wa_chat_archive_v2_cleaned')) {
