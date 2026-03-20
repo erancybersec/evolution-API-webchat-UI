@@ -3807,20 +3807,27 @@
         convs.push(parsed);
       });
 
-      // Parse archived chats from both archive fetch strategies
+      // Parse archived chats — ONLY treat items as archived if they appear
+      // exclusively in the archive response and NOT in the normal response.
+      // (If the API filter is broken, archive call returns the same list as normal,
+      //  so we must NOT blindly mark everything as archived.)
+      const normalJids = new Set(data.map(c => (c.id || c.remoteJid || '')));
       const apiDetectedArchived = [];
       const processArchived = (items) => {
         items.forEach(c => {
           const jid = c.id || c.remoteJid || '';
           if (!jid || jid === 'status@broadcast') return;
+          // Only consider it archived if it's NOT in the normal response
+          // (archive-only item = truly archived on WhatsApp's side)
+          if (normalJids.has(jid)) return;
           if (!apiDetectedArchived.includes(jid)) apiDetectedArchived.push(jid);
-          if (seenJids.has(jid)) {
-            const existing = convs.find(x => x.id === jid);
-            if (existing) existing.archived = true;
-          } else {
+          if (!seenJids.has(jid)) {
             const parsed = _chatParseConv(c, true);
             seenJids.add(jid);
             convs.push(parsed);
+          } else {
+            const existing = convs.find(x => x.id === jid);
+            if (existing) existing.archived = true;
           }
         });
       };
@@ -4199,6 +4206,13 @@
   async function chatInit() {
     if (chatState.initialized) { chatStartPolling(); return; }
     chatState.initialized = true;
+    // One-time cleanup: previous bug may have saved ALL jids as archived in localStorage
+    // Clear it so only truly archived chats are detected fresh from the API
+    if (!localStorage.getItem('wa_chat_archive_v2_cleaned')) {
+      localStorage.removeItem('wa_chat_archived');
+      localStorage.setItem('wa_chat_archive_v2_cleaned', '1');
+      console.log('[Chat] Cleared corrupted archive localStorage (one-time v2 fix)');
+    }
     // Load from cache first for instant render
     try {
       const cached = await chatDbGetAll('chat_conversations');
