@@ -4244,7 +4244,9 @@
   }
 
   // ── API: Fetch messages for a conversation ───────────────────────────
-  async function chatFetchMessages(jid) {
+  // page: 1-based page number (API returns pages of 50, newest-first on page 1)
+  // Returns { msgs: parsed[], totalPages: N }
+  async function chatFetchMessages(jid, page = 1) {
     try {
       const cfg = getCfg();
       // Collect alias JIDs (LID/phone dedup) for fetching messages from both
@@ -4253,93 +4255,82 @@
         if (pri === jid) aliasJids.add(sec);
         if (sec === jid) aliasJids.add(pri);
       });
-      console.log('[Chat] fetchMessages for:', jid, aliasJids.size > 1 ? `(+aliases: ${[...aliasJids].filter(j=>j!==jid).join(', ')})` : '');
 
       // Try multiple request formats — Evolution API varies across versions
       let data = null;
-      let lastErr = null;
 
-      // Strategy 1: POST with where.key.remoteJid filter
+      // Strategy 1: POST with where.key.remoteJid + page
       try {
         data = await chatApiCall(`/chat/findMessages/${cfg.instance}`, {
-          where: { key: { remoteJid: jid } }
+          where: { key: { remoteJid: jid } }, page
         });
-      } catch (e) { lastErr = e; console.warn('[Chat] findMessages strategy 1 failed:', e.message); }
+      } catch (e) { console.warn('[Chat] findMessages strategy 1 failed:', e.message); }
 
-      // Strategy 2: POST with just remoteJid (flat filter)
+      // Strategy 2: flat remoteJid filter + page
       if (!data || (typeof data === 'object' && !Array.isArray(data) && !data.messages && !data.records)) {
         try {
           data = await chatApiCall(`/chat/findMessages/${cfg.instance}`, {
-            where: { remoteJid: jid }
+            where: { remoteJid: jid }, page
           });
-        } catch (e) { lastErr = e; console.warn('[Chat] findMessages strategy 2 failed:', e.message); }
+        } catch (e) { console.warn('[Chat] findMessages strategy 2 failed:', e.message); }
       }
 
-      // Strategy 3: No filter (fetch all, filter client-side)
+      // Strategy 3: no filter (fetch all, filter client-side)
       if (!data || (typeof data === 'object' && !Array.isArray(data) && !data.messages && !data.records)) {
         try {
-          data = await chatApiCall(`/chat/findMessages/${cfg.instance}`, {});
-        } catch (e) { lastErr = e; console.warn('[Chat] findMessages strategy 3 failed:', e.message); }
+          data = await chatApiCall(`/chat/findMessages/${cfg.instance}`, { page });
+        } catch (e) { console.warn('[Chat] findMessages strategy 3 failed:', e.message); }
       }
 
-      console.log('[Chat] findMessages raw response:', typeof data, JSON.stringify(data).slice(0, 500));
-
-      // Extract message array from various response shapes
-      let msgs = [];
+      // Extract message array + pagination metadata from various response shapes
+      let msgs = [], totalPages = 1;
       if (Array.isArray(data)) {
         msgs = data;
       } else if (data && typeof data === 'object') {
-        // Try common nested structures: data.messages, data.records, data.messages.records, data.data
-        if (Array.isArray(data.messages)) msgs = data.messages;
-        else if (Array.isArray(data.records)) msgs = data.records;
-        else if (data.messages && Array.isArray(data.messages.records)) msgs = data.messages.records;
-        else if (Array.isArray(data.data)) msgs = data.data;
-        else {
-          // Last resort: find the first array property
+        if (data.messages && Array.isArray(data.messages.records)) {
+          msgs = data.messages.records;
+          totalPages = data.messages.pages || 1;
+        } else if (Array.isArray(data.messages)) {
+          msgs = data.messages;
+        } else if (Array.isArray(data.records)) {
+          msgs = data.records;
+          totalPages = data.pages || 1;
+        } else if (Array.isArray(data.data)) {
+          msgs = data.data;
+        } else {
           for (const key of Object.keys(data)) {
-            if (Array.isArray(data[key]) && data[key].length > 0) {
-              console.log('[Chat] findMessages: using array from key:', key, 'length:', data[key].length);
-              msgs = data[key];
-              break;
-            }
+            if (Array.isArray(data[key]) && data[key].length > 0) { msgs = data[key]; break; }
           }
         }
       }
 
-      console.log('[Chat] findMessages extracted msgs count:', msgs.length);
+      console.log(`[Chat] findMessages page=${page}/${totalPages} records=${msgs.length}`);
 
-      // Also fetch messages from alias JIDs (LID/phone dedup)
-      for (const aliasJid of aliasJids) {
-        if (aliasJid === jid) continue;
-        try {
-          const aliasData = await chatApiCall(`/chat/findMessages/${cfg.instance}`, {
-            where: { key: { remoteJid: aliasJid } }
-          });
-          let aliasMsgs = [];
-          if (Array.isArray(aliasData)) aliasMsgs = aliasData;
-          else if (aliasData?.messages?.records) aliasMsgs = aliasData.messages.records;
-          else if (Array.isArray(aliasData?.messages)) aliasMsgs = aliasData.messages;
-          else if (Array.isArray(aliasData?.records)) aliasMsgs = aliasData.records;
-          if (aliasMsgs.length) {
-            console.log(`[Chat] alias ${aliasJid}: fetched ${aliasMsgs.length} additional messages`);
-            msgs = msgs.concat(aliasMsgs);
-          }
-        } catch (e) { console.warn('[Chat] alias fetch failed for', aliasJid, e.message); }
+      // Also fetch from alias JIDs (LID/phone dedup) on page 1 only
+      if (page === 1) {
+        for (const aliasJid of aliasJids) {
+          if (aliasJid === jid) continue;
+          try {
+            const aliasData = await chatApiCall(`/chat/findMessages/${cfg.instance}`, {
+              where: { key: { remoteJid: aliasJid } }, page: 1
+            });
+            let aliasMsgs = [];
+            if (Array.isArray(aliasData)) aliasMsgs = aliasData;
+            else if (aliasData?.messages?.records) aliasMsgs = aliasData.messages.records;
+            else if (Array.isArray(aliasData?.messages)) aliasMsgs = aliasData.messages;
+            else if (Array.isArray(aliasData?.records)) aliasMsgs = aliasData.records;
+            if (aliasMsgs.length) msgs = msgs.concat(aliasMsgs);
+          } catch (e) { console.warn('[Chat] alias fetch failed for', aliasJid, e.message); }
+        }
       }
 
-      // Client-side filter — accept messages from primary + alias JIDs
-      const beforeFilter = msgs.length;
-      msgs = msgs.filter(m => {
-        const mJid = m.key?.remoteJid || m.remoteJid || '';
-        return aliasJids.has(mJid);
-      });
-      console.log('[Chat] findMessages: total=', beforeFilter, 'after jid filter=', msgs.length, 'aliasJids:', [...aliasJids]);
+      // Client-side filter — keep only messages belonging to this conversation
+      msgs = msgs.filter(m => aliasJids.has(m.key?.remoteJid || m.remoteJid || ''));
       const parsed = msgs.map(m => chatParseMessage(m, jid)).filter(Boolean);
-      console.log('[Chat] parsed messages:', parsed.length);
       if (parsed.length) await chatDbPutMany('chat_messages', parsed);
       chatUpdateContactNamesFromMessages(jid, parsed);
-      return parsed;
-    } catch (e) { console.warn('chatFetchMessages error:', e); return []; }
+      return { msgs: parsed, totalPages };
+    } catch (e) { console.warn('chatFetchMessages error:', e); return { msgs: [], totalPages: 1 }; }
   }
 
   // ── Update contact names from message pushName data ──────────────────
@@ -4670,7 +4661,7 @@
       }
       if (!lastMsgKey || !lastMsgKey.id) {
         // Fetch messages first to get a valid message ID
-        const msgs = await chatFetchMessages(jid);
+        const { msgs } = await chatFetchMessages(jid);
         if (msgs.length) {
           const last = msgs[msgs.length - 1];
           lastMsgKey = { remoteJid: jid, fromMe: last.fromMe, id: last.id };
@@ -4802,8 +4793,11 @@
   // ── Open / close conversation ────────────────────────────────────────
   async function chatOpenConversation(jid) {
     chatState.activeJid = jid;
-    chatState.allFetchedMessages = []; // full fetched set for this jid
+    chatState.allFetchedMessages = [];
     chatState.historyFullyLoaded = false;
+    chatState._loadingOlderFromApi = false;
+    chatState.apiCurrentPage = 1;
+    chatState.apiTotalPages = 1;
     // Update UI
     document.getElementById('chat-empty-state').style.display = 'none';
     const active = document.getElementById('chat-active');
@@ -4841,22 +4835,24 @@
         chatState.allFetchedMessages = cached;
         // Show last N messages initially
         chatState.messages = cached.slice(-CHAT_PAGE_SIZE);
-        chatState.historyFullyLoaded = cached.length <= CHAT_PAGE_SIZE;
+        chatState.historyFullyLoaded = false; // API will confirm if truly exhausted
         chatRenderMessages();
         chatScrollToBottom(false);
       }
     } catch (e) {}
-    // Fetch fresh from API
-    const fresh = await chatFetchMessages(jid);
+    // Fetch fresh from API (page 1 = most recent messages)
+    const { msgs: fresh, totalPages } = await chatFetchMessages(jid, 1);
+    chatState.apiTotalPages = totalPages;
+    chatState.apiCurrentPage = 1;
     if (fresh.length) {
       const all = fresh.sort((a, b) => a.timestamp - b.timestamp);
       chatState.allFetchedMessages = all;
       chatState.messages = all.slice(-CHAT_PAGE_SIZE);
-      chatState.historyFullyLoaded = all.length <= CHAT_PAGE_SIZE;
+      chatState.historyFullyLoaded = totalPages <= 1; // only 1 page = all loaded
     } else if (!chatState.allFetchedMessages.length) {
       chatState.allFetchedMessages = [];
       chatState.messages = [];
-      chatState.historyFullyLoaded = true;
+      chatState.historyFullyLoaded = true; // truly empty conversation
     }
     chatRenderMessages();
     chatScrollToBottom(false);
@@ -4882,19 +4878,23 @@
   }
 
   function chatLoadOlderMessages() {
-    if (chatState.historyFullyLoaded) return;
+    if (chatState.historyFullyLoaded || chatState._loadingOlderFromApi) return;
     const all = chatState.allFetchedMessages;
     const currentOldest = chatState.messages.length > 0 ? chatState.messages[0].timestamp : Infinity;
     // Find messages older than what we currently show
     const older = all.filter(m => m.timestamp < currentOldest);
     if (!older.length) {
-      chatState.historyFullyLoaded = true;
+      // Local cache exhausted — fetch next page from API
+      chatFetchOlderFromApi();
       return;
     }
     // Take the most recent PAGE_SIZE of the older messages
     const page = older.slice(-CHAT_PAGE_SIZE);
     chatState.messages = [...page, ...chatState.messages];
-    if (older.length <= CHAT_PAGE_SIZE) chatState.historyFullyLoaded = true;
+    if (older.length <= CHAT_PAGE_SIZE) {
+      // Showed all local cache — next scroll will hit API
+      // Don't mark fully loaded yet; let the next scroll attempt API fetch
+    }
     // Preserve scroll position
     const msgEl = document.getElementById('chat-messages');
     const prevScrollHeight = msgEl.scrollHeight;
@@ -4904,11 +4904,57 @@
     msgEl.scrollTop = newScrollHeight - prevScrollHeight;
   }
 
+  async function chatFetchOlderFromApi() {
+    if (chatState._loadingOlderFromApi || !chatState.activeJid) return;
+    const nextPage = (chatState.apiCurrentPage || 1) + 1;
+    const totalPages = chatState.apiTotalPages || 1;
+    if (nextPage > totalPages) { chatState.historyFullyLoaded = true; return; }
+
+    chatState._loadingOlderFromApi = true;
+    const jid = chatState.activeJid;
+    const msgEl = document.getElementById('chat-messages');
+    // Show spinner at top of messages
+    const spinner = document.createElement('div');
+    spinner.id = 'chat-older-loading';
+    spinner.className = 'flex justify-center py-3';
+    spinner.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+    if (msgEl) msgEl.prepend(spinner);
+    const prevScrollHeight = msgEl ? msgEl.scrollHeight : 0;
+    try {
+      const { msgs: older, totalPages: tp } = await chatFetchMessages(jid, nextPage);
+      chatState.apiCurrentPage = nextPage;
+      chatState.apiTotalPages = tp || totalPages;
+      if (!older.length) {
+        chatState.historyFullyLoaded = true;
+      } else {
+        const existingIds = new Set(chatState.allFetchedMessages.map(m => m.id));
+        const newMsgs = older.filter(m => !existingIds.has(m.id));
+        if (!newMsgs.length) {
+          chatState.historyFullyLoaded = true;
+        } else {
+          chatState.allFetchedMessages = [...newMsgs, ...chatState.allFetchedMessages]
+            .sort((a, b) => a.timestamp - b.timestamp);
+          const display = newMsgs.slice(-CHAT_PAGE_SIZE);
+          chatState.messages = [...display, ...chatState.messages];
+          if (nextPage >= (chatState.apiTotalPages || 1)) chatState.historyFullyLoaded = true;
+          chatRenderMessages();
+          if (msgEl) msgEl.scrollTop = msgEl.scrollHeight - prevScrollHeight;
+        }
+      }
+    } catch (e) {
+      console.warn('[Chat] fetchOlderFromApi error:', e);
+      chatState.historyFullyLoaded = true;
+    }
+    document.getElementById('chat-older-loading')?.remove();
+    chatState._loadingOlderFromApi = false;
+  }
+
   function chatCloseConversation() {
     chatState.activeJid = null;
     chatState.messages = [];
     chatState.allFetchedMessages = [];
     chatState.historyFullyLoaded = false;
+    chatState._loadingOlderFromApi = false;
     chatState.replyTo = null;
     if (chatState.pollTimer) { clearInterval(chatState.pollTimer); chatState.pollTimer = null; }
     const msgEl = document.getElementById('chat-messages');
@@ -4923,7 +4969,7 @@
   async function chatPollMessages() {
     if (!chatState.activeJid) return;
     const jid = chatState.activeJid;
-    const fresh = await chatFetchMessages(jid);
+    const { msgs: fresh } = await chatFetchMessages(jid, 1);
     if (!fresh.length) return;
     const existingIds = new Set(chatState.messages.map(m => m.id));
     const allIds = new Set(chatState.allFetchedMessages.map(m => m.id));
