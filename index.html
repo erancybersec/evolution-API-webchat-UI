@@ -205,14 +205,14 @@
   <!-- Sidebar -->
   <aside class="w-56 bg-white border-r border-gray-200 flex flex-col py-4 gap-1 px-3 overflow-y-auto shrink-0">
     <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 mb-2">Chat</p>
-    <button class="sidebar-btn text-sm font-medium px-3 py-2.5 rounded-lg text-left text-gray-600 flex items-center gap-2.5" onclick="switchTab('chat', this)">
+    <button class="sidebar-btn active text-sm font-medium px-3 py-2.5 rounded-lg text-left flex items-center gap-2.5" onclick="switchTab('chat', this)">
       <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-2.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg>
       Inbox
       <span id="chat-unread-badge" class="hidden ml-auto bg-green-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center"></span>
     </button>
     <div class="my-3 border-t border-gray-200"></div>
     <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 mb-2">Messages</p>
-    <button class="sidebar-btn active text-sm font-medium px-3 py-2.5 rounded-lg text-left flex items-center gap-2.5" onclick="switchTab('text', this)">
+    <button class="sidebar-btn text-sm font-medium px-3 py-2.5 rounded-lg text-left text-gray-600 flex items-center gap-2.5" onclick="switchTab('text', this)">
       <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
       Compose
     </button>
@@ -322,7 +322,7 @@
             </div>
           </div>
           <!-- Active chat (hidden until selected) -->
-          <div id="chat-active" class="hidden flex-col h-full" style="display:none">
+          <div id="chat-active" class="hidden flex-col h-full relative" style="display:none">
             <!-- Header -->
             <div id="chat-header" class="bg-white px-4 py-2.5 flex items-center gap-3 border-b border-gray-200 shrink-0">
               <button onclick="chatCloseConversation()" class="p-1 hover:bg-gray-100 rounded-full mr-1 lg:hidden" title="Back">
@@ -383,6 +383,16 @@
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
               </div>
+            </div>
+            <!-- Poll details panel (slides in over messages) -->
+            <div id="poll-details-panel" class="hidden absolute inset-0 bg-white z-40 flex-col" style="display:none!important">
+              <div class="flex items-center gap-3 px-4 py-3 border-b border-gray-200 shrink-0">
+                <button onclick="chatClosePollDetails()" class="p-1 hover:bg-gray-100 rounded-full">
+                  <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+                <span class="text-[15px] font-medium text-gray-800">Poll details</span>
+              </div>
+              <div id="poll-details-content" class="flex-1 overflow-y-auto px-5 py-4"></div>
             </div>
           </div>
         </div>
@@ -1165,6 +1175,21 @@
         <p class="text-sm text-gray-500 mb-5">Messages queued for future delivery. The browser tab must remain open at send time.</p>
         <div id="scheduled-jobs-list" class="space-y-3">
           <p class="text-sm text-gray-400 text-center py-12">No scheduled jobs yet.</p>
+        </div>
+
+        <!-- Send History -->
+        <div class="mt-10 border-t border-gray-100 pt-6">
+          <div class="flex items-center justify-between mb-4">
+            <button onclick="toggleSendHistory()" class="flex items-center gap-2 text-sm font-semibold text-gray-700 hover:text-gray-900 transition-colors">
+              <span id="send-history-toggle-icon" class="text-xs text-gray-400">▶</span>
+              Send History
+              <span id="send-history-badge" class="bg-gray-100 text-gray-500 text-xs px-2 py-0.5 rounded-full font-medium"></span>
+            </button>
+            <button onclick="clearSendHistory()" class="text-xs text-gray-400 hover:text-red-500 transition-colors">Clear history</button>
+          </div>
+          <div id="send-history-list" class="hidden space-y-3">
+            <p class="text-sm text-gray-400 text-center py-8">No send history yet.</p>
+          </div>
         </div>
       </div>
 
@@ -2185,6 +2210,10 @@
     const noResponsePanel = ['scheduled', 'settings', 'chat'];
     const respPanel = document.querySelector('main > div.border-t');
     if (respPanel) respPanel.style.display = noResponsePanel.includes(name) ? 'none' : '';
+    // Apply pending history duplicate when switching to compose tab
+    if (name === 'text') setTimeout(() => applyPendingHistoryDuplicate(), 50);
+    // Render history when switching to scheduled tab
+    if (name === 'scheduled') renderSendHistory();
   }
 
   function toggleDelay(prefix) {
@@ -2472,6 +2501,13 @@
     progress.className = 'text-xs rounded-lg px-3 py-2 bg-gray-50 text-gray-600';
     sendBtn.disabled = true;
 
+    // Snapshot queue items for history (strip base64 to save space)
+    const { items: historyItems } = serializeQueue('compose-queue');
+    const historyItemsSafe = historyItems.map(it => {
+      if (it.data?.base64) return { ...it, data: { ...it.data, base64: '[file]' } };
+      return it;
+    });
+
     const numbers = [...textRecipients];
     const total = numbers.length * queueItems.length;
     let ok = 0, fail = 0, done = 0;
@@ -2502,6 +2538,159 @@
     progress.className = `text-xs rounded-lg px-3 py-2 ${fail ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`;
     progress.textContent = `Done: ${ok}/${total} sent${fail ? `, ${fail} failed` : ''}`;
     sendBtn.disabled = false;
+
+    // Save to send history
+    await saveSendHistory({
+      id: `hist_${Date.now()}`,
+      sentAt: new Date().toISOString(),
+      recipients: [...textRecipients],
+      items: historyItemsSafe,
+      ok,
+      fail,
+      total
+    });
+    renderSendHistory();
+  }
+
+  // ── SEND HISTORY ──────────────────────────────────────────────────────────
+  async function saveSendHistory(entry) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('send_history', 'readwrite');
+      tx.objectStore('send_history').put(entry);
+      tx.oncomplete = resolve;
+      tx.onerror = e => reject(e.target.error);
+    });
+  }
+
+  async function loadSendHistory() {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('send_history', 'readonly');
+      const req = tx.objectStore('send_history').getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = e => reject(e.target.error);
+    });
+  }
+
+  async function deleteSendHistoryEntry(id) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('send_history', 'readwrite');
+      tx.objectStore('send_history').delete(id);
+      tx.oncomplete = resolve;
+      tx.onerror = e => reject(e.target.error);
+    });
+  }
+
+  async function clearSendHistory() {
+    if (!confirm('Clear all send history?')) return;
+    const db = await openDB();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction('send_history', 'readwrite');
+      tx.objectStore('send_history').clear();
+      tx.oncomplete = resolve;
+      tx.onerror = e => reject(e.target.error);
+    });
+    renderSendHistory();
+  }
+
+  function toggleSendHistory() {
+    const list = document.getElementById('send-history-list');
+    const icon = document.getElementById('send-history-toggle-icon');
+    if (!list) return;
+    const hidden = list.classList.toggle('hidden');
+    if (icon) icon.textContent = hidden ? '▶' : '▼';
+  }
+
+  function toggleHistoryDetails(id) {
+    const el = document.getElementById(`hist-details-${id}`);
+    if (!el) return;
+    el.classList.toggle('hidden');
+  }
+
+  function duplicateHistoryToCompose(id) {
+    _pendingHistoryDuplicate = id;
+    const composeBtn = [...document.querySelectorAll('.sidebar-btn')].find(b => b.getAttribute('onclick') === "switchTab('text', this)");
+    if (composeBtn) switchTab('text', composeBtn);
+  }
+
+  let _pendingHistoryDuplicate = null;
+
+  async function applyPendingHistoryDuplicate() {
+    if (!_pendingHistoryDuplicate) return;
+    const id = _pendingHistoryDuplicate;
+    _pendingHistoryDuplicate = null;
+    const entries = await loadSendHistory();
+    const entry = entries.find(e => e.id === id);
+    if (!entry) return;
+    // Clear existing queue
+    const container = document.getElementById('compose-queue');
+    while (container.firstChild) container.removeChild(container.firstChild);
+    // Load recipients
+    textRecipients.length = 0;
+    document.getElementById('text-chip-box').querySelectorAll('.chip').forEach(c => c.remove());
+    entry.recipients.forEach(r => addTextChip(r));
+    // Load queue items
+    entry.items.forEach(item => { addQueueItem(item.type); populateQueueItem(queueIdCounter, item); });
+  }
+
+  async function renderSendHistory() {
+    const container = document.getElementById('send-history-list');
+    if (!container) return;
+    const entries = (await loadSendHistory()).sort((a, b) => new Date(b.sentAt) - new Date(a.sentAt));
+    const badge = document.getElementById('send-history-badge');
+    if (badge) badge.textContent = entries.length || '';
+
+    if (!entries.length) {
+      container.innerHTML = '<p class="text-sm text-gray-400 text-center py-8">No send history yet.</p>';
+      return;
+    }
+
+    container.innerHTML = entries.map(entry => {
+      const recCount = entry.recipients.length;
+      const sentStr = new Date(entry.sentAt).toLocaleString();
+      const statusCls = entry.fail > 0 ? 'bg-red-50 text-red-700 border-red-200' : 'bg-green-50 text-green-700 border-green-200';
+      const statusLabel = entry.fail > 0 ? `${entry.ok}/${entry.total} sent, ${entry.fail} failed` : `${entry.ok} sent`;
+      const msgPreviews = entry.items.map(item => {
+        const icon = Q_ICONS[item.type] || '📨';
+        let snippet = '';
+        if (item.type === 'text') snippet = (item.data?.text || '').slice(0, 80) + ((item.data?.text || '').length > 80 ? '…' : '');
+        else if (item.type === 'media') snippet = `${item.data?.mediatype || 'media'}${item.data?.caption ? ` · "${item.data.caption.slice(0,50)}"` : ''}`;
+        else if (item.type === 'voice') snippet = 'Voice note';
+        else if (item.type === 'poll') snippet = item.data?.question ? `"${item.data.question.slice(0,60)}"` : 'Poll';
+        else if (item.type === 'buttons') snippet = item.data?.title ? `"${item.data.title.slice(0,60)}"` : 'Buttons';
+        return `<span class="text-gray-500">${icon}</span> <span class="text-gray-700">${snippet.replace(/</g,'&lt;')}</span>`;
+      }).join('<br>');
+      const recTags = entry.recipients.map(r => `<span class="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">${r}</span>`).join(' ');
+
+      return `
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div class="p-4 flex items-start justify-between gap-4">
+            <div class="flex-1 min-w-0 space-y-1 cursor-pointer" onclick="toggleHistoryDetails('${entry.id}')" title="Click to expand details">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-xs font-semibold px-2 py-0.5 rounded-full border ${statusCls}">${statusLabel}</span>
+                <span class="text-xs text-gray-500">💬 Compose</span>
+              </div>
+              <p class="text-sm font-medium text-gray-800">📤 ${sentStr}</p>
+              <p class="text-xs text-gray-500">${recCount} recipient${recCount > 1 ? 's' : ''} · ${entry.items.length} message${entry.items.length > 1 ? 's' : ''}</p>
+              <div class="text-xs leading-5">${msgPreviews}</div>
+            </div>
+            <div class="flex flex-col gap-2 shrink-0 w-24">
+              <button onclick="duplicateHistoryToCompose('${entry.id}')" class="w-full text-xs text-gray-400 hover:text-purple-500 border border-gray-200 hover:border-purple-300 px-3 py-1.5 rounded-lg transition-colors">Resend</button>
+              <button onclick="toggleHistoryDetails('${entry.id}')" class="w-full text-xs text-gray-400 hover:text-blue-500 border border-gray-200 hover:border-blue-300 px-3 py-1.5 rounded-lg transition-colors">Details ▾</button>
+              <button onclick="deleteSendHistoryEntry('${entry.id}').then(renderSendHistory)" class="w-full text-xs text-gray-400 hover:text-red-500 border border-gray-200 hover:border-red-300 px-3 py-1.5 rounded-lg transition-colors">Delete</button>
+            </div>
+          </div>
+          <div id="hist-details-${entry.id}" class="hidden border-t border-gray-100 bg-gray-50 px-4 py-3 space-y-3">
+            <div>
+              <p class="text-xs font-semibold text-gray-500 mb-1">Recipients</p>
+              <div class="flex flex-wrap gap-1">${recTags}</div>
+            </div>
+            <p class="text-xs text-gray-400">Sent: ${sentStr}</p>
+          </div>
+        </div>`;
+    }).join('');
   }
 
   // ── SEND TEXT ─────────────────────────────────────────────────────────────
@@ -2531,7 +2720,7 @@
     });
   }
   // ── SCHEDULER ─────────────────────────────────────────────────────────────
-  const DB_NAME = 'wa_manager', DB_VERSION = 2, STORE_NAME = 'scheduled_jobs';
+  const DB_NAME = 'wa_manager', DB_VERSION = 3, STORE_NAME = 'scheduled_jobs';
   let _db = null;
 
   function openDB() {
@@ -2557,6 +2746,11 @@
           ms.createIndex('remoteJid', 'remoteJid');
           ms.createIndex('timestamp', 'timestamp');
           ms.createIndex('jid_ts', ['remoteJid', 'timestamp']);
+        }
+        // v3 store — send history
+        if (!db.objectStoreNames.contains('send_history')) {
+          const sh = db.createObjectStore('send_history', { keyPath: 'id' });
+          sh.createIndex('sentAt', 'sentAt');
         }
       };
       req.onsuccess = e => { _db = e.target.result; resolve(_db); };
@@ -3136,11 +3330,15 @@
   }
 
   document.addEventListener('DOMContentLoaded', async () => {
+    // Default to Inbox tab on load
+    const chatBtn = [...document.querySelectorAll('.sidebar-btn')].find(b => b.getAttribute('onclick') === "switchTab('chat', this)");
+    if (chatBtn) switchTab('chat', chatBtn);
     initTextChips();
     addQueueItem('text');
     addGroupQueueItem('text');
     await initDB();
     renderScheduledJobs();
+    renderSendHistory();
     startSchedulerPoller();
   });
 
@@ -3600,6 +3798,7 @@
     activeFilter: 'all', // all | unread | favorites | groups
     typingTimer: null,
     initialized: false,
+    _verifiedGroupNames: {},  // in-memory only; populated by chatFetchGroupSubjects
   };
 
   // ── Avatar colors (deterministic by jid) ─────────────────────────────
@@ -3608,6 +3807,37 @@
   function chatInitials(name) { if(!name) return '?'; const p=name.trim().split(/\s+/); return p.length>=2 ? (p[0][0]+p[1][0]).toUpperCase() : name.slice(0,2).toUpperCase(); }
   function chatExtractNumber(jid) { return jid ? jid.split('@')[0] : ''; }
   function chatIsGroup(jid) { return jid && jid.endsWith('@g.us'); }
+
+  /**
+   * Resolve a JID to the value the Evolution API expects in the `number` field.
+   * - Groups (@g.us): return the full JID (API requires it)
+   * - Phone  (@s.whatsapp.net): return just the phone digits
+   * - LID    (@lid): look up the phone alias via jidAliases, fall back to full JID
+   * - DB internal ID (no @): look up conversation remoteJid
+   */
+  function chatResolveApiNumber(jid) {
+    if (!jid) return '';
+    // Group: API needs full JID
+    if (jid.endsWith('@g.us')) return jid;
+    // Phone: strip suffix
+    if (jid.endsWith('@s.whatsapp.net')) return jid.split('@')[0];
+    // LID: resolve to phone via alias map
+    if (jid.endsWith('@lid')) {
+      const phoneJid = chatState.jidAliases && Object.entries(chatState.jidAliases)
+        .find(([sec, pri]) => pri === jid || sec === jid);
+      if (phoneJid) {
+        const resolved = phoneJid[0].endsWith('@s.whatsapp.net') ? phoneJid[0] : phoneJid[1];
+        if (resolved && resolved.endsWith('@s.whatsapp.net')) return resolved.split('@')[0];
+      }
+      // No alias found — try the raw number (some APIs accept LID numbers)
+      return jid.split('@')[0];
+    }
+    // Fallback: might be a DB internal ID — search conversations for the real JID
+    const conv = chatState.conversations.find(c => c.id === jid);
+    if (conv) return chatResolveApiNumber(conv.id);
+    // Last resort: return as-is
+    return jid;
+  }
 
   // ── Time formatting ──────────────────────────────────────────────────
   function chatFormatTime(ts) {
@@ -3697,14 +3927,14 @@
       const data = await chatApiCall(`/chat/findContacts/${cfg.instance}`, {});
       if (!Array.isArray(data)) return [];
       const contacts = data.map(c => ({
-        id: c.id || c.remoteJid || c.wid,
+        id: c.remoteJid || c.id || c.wid,
         // name = phone address book name (saved by user), pushName = WhatsApp profile name
         savedName: c.name || c.verifiedName || '',
         pushName: c.pushName || '',
         // displayName priority: phone-saved name > pushName > phone number
-        displayName: c.name || c.verifiedName || c.pushName || chatExtractNumber(c.id || c.remoteJid || c.wid || ''),
+        displayName: c.name || c.verifiedName || c.pushName || chatExtractNumber(c.remoteJid || c.id || c.wid || ''),
         profilePicUrl: c.profilePicUrl || c.profilePictureUrl || '',
-        phone: chatExtractNumber(c.id || c.remoteJid || c.wid || ''),
+        phone: chatExtractNumber(c.remoteJid || c.id || c.wid || ''),
         isFavorite: c.isFavorite || c.starred || false,
       })).filter(c => c.id);
       await chatDbPutMany('chat_contacts', contacts);
@@ -3723,16 +3953,61 @@
 
   // ── API: Fetch conversations (chat list) ─────────────────────────────
   function _chatParseConv(c, forceArchived) {
-    const jid = c.id || c.remoteJid || '';
+    const jid = c.remoteJid || c.id || '';
     const lastMsg = c.lastMessage || c.lastMsgContent || {};
     const contact = chatState.contacts[jid];
-    const name = (contact && contact.savedName) || (contact && contact.displayName) || c.name || c.pushName || c.subject || chatExtractNumber(jid);
+
+    // Name resolution priority:
+    // 1. Contact saved name (phone address book)
+    // Name resolution:
+    // Groups:  API pushName (group subject) → contact savedName → fallback
+    // 1:1:    contact savedName/displayName → API pushName → last incoming msg pushName → fallback
+    const chatPushName = c.pushName || c.name || c.subject || '';
+    let name;
+    if (chatIsGroup(jid)) {
+      // For groups, the ONLY reliable name source is chatFetchGroupSubjects (group API).
+      // The findChats pushName is the LAST SENDER's name, NOT the group subject.
+      // contact.displayName in IndexedDB may also be contaminated from previous bad writes.
+      // So we use a dedicated in-memory cache that can ONLY be written by the group API.
+      const verifiedName = chatState._verifiedGroupNames && chatState._verifiedGroupNames[jid];
+      name = verifiedName || chatPushName || chatExtractNumber(jid);
+      // Do NOT write to contact.displayName for groups here — only chatFetchGroupSubjects may do that.
+    } else {
+      const contactName = (contact && contact.savedName) || (contact && contact.displayName && !/^\d+$/.test(contact.displayName) ? contact.displayName : '');
+      // lastMsg.pushName is the SENDER's name — only valid for 1:1 chats, never for groups
+      const lastMsgContactName = (!lastMsg.key?.fromMe && lastMsg.pushName) ? lastMsg.pushName : '';
+      name = contactName || chatPushName || lastMsgContactName || chatExtractNumber(jid);
+    }
+
+    // Update 1:1 contact store with discovered name (groups are handled above)
+    if (!chatIsGroup(jid)) {
+      const contactName = (contact && contact.savedName) || (contact && contact.displayName && !/^\d+$/.test(contact.displayName) ? contact.displayName : '');
+      if (!contactName && name && name !== chatExtractNumber(jid)) {
+        if (contact && !contact.savedName) {
+          contact.pushName = name;
+          contact.displayName = name;
+        } else if (!contact) {
+          chatState.contacts[jid] = {
+            id: jid, savedName: '', pushName: name, displayName: name,
+            profilePicUrl: c.profilePicUrl || c.profilePictureUrl || '',
+            phone: chatExtractNumber(jid), isFavorite: false,
+          };
+        }
+      }
+    }
+
     let lastText = '';
     if (typeof lastMsg === 'string') lastText = lastMsg;
     else if (lastMsg.message) {
       const m = lastMsg.message;
       lastText = m.conversation || m.extendedTextMessage?.text || (m.imageMessage ? '📷 Photo' : '') || (m.videoMessage ? '🎥 Video' : '') || (m.audioMessage ? '🎤 Audio' : '') || (m.documentMessage ? '📄 Document' : '') || (m.stickerMessage ? '🏷 Sticker' : '') || '';
     }
+    // Also try messageType from lastMessage for preview text
+    if (!lastText && lastMsg.messageType) {
+      const typeLabels = { imageMessage: '📷 Photo', videoMessage: '🎥 Video', audioMessage: '🎤 Audio', documentMessage: '📄 Document', stickerMessage: '🏷 Sticker', reactionMessage: '❤️ Reaction', pollCreationMessage: '📊 Poll', contactMessage: '👤 Contact', locationMessage: '📍 Location' };
+      lastText = typeLabels[lastMsg.messageType] || '';
+    }
+
     const apiArchived = forceArchived || !!(c.archived || c.archive || c.isArchived || c.archiveAtTimestamp || c.archiveV2);
     const lastMsgKey = lastMsg.key || null;
     return {
@@ -3750,6 +4025,42 @@
       labels: c.labels || c.label || [],
       _lastMsgKey: lastMsgKey,
     };
+  }
+
+  async function chatFetchGroupSubjects(convs) {
+    const cfg = getCfg();
+    const groups = convs.filter(c => chatIsGroup(c.id));
+    if (!groups.length) return;
+    // Initialize the verified names cache (in-memory only — never contaminated by IndexedDB)
+    if (!chatState._verifiedGroupNames) chatState._verifiedGroupNames = {};
+    // Fetch group metadata in parallel
+    const results = await Promise.allSettled(
+      groups.map(g =>
+        fetch(`${cfg.base}/group/findGroupInfos/${cfg.instance}?groupJid=${encodeURIComponent(g.id)}`, {
+          headers: { apikey: cfg.apikey }
+        }).then(r => r.ok ? r.json() : null).catch(() => null)
+      )
+    );
+    let okCount = 0, failCount = 0;
+    results.forEach((res, i) => {
+      const gid = groups[i].id;
+      if (res.status !== 'fulfilled') { console.warn('[Chat] Group API rejected for', gid, res.reason); failCount++; return; }
+      if (!res.value) { console.warn('[Chat] Group API null/error for', gid); failCount++; return; }
+      const info = res.value;
+      const subject = info.subject || info.name || '';
+      if (!subject) { console.warn('[Chat] Group API no subject for', gid); failCount++; return; }
+      const conv = groups[i];
+      conv.name = subject;
+      // Store in the verified in-memory cache — this is the ONLY write path
+      chatState._verifiedGroupNames[conv.id] = subject;
+      // Update profile pic if the group metadata has a better one
+      if (info.pictureUrl && !conv.profilePicUrl) conv.profilePicUrl = info.pictureUrl;
+      // Keep contact store in sync (for display elsewhere)
+      const contact = chatState.contacts[conv.id];
+      if (contact) { contact.displayName = subject; contact.pushName = subject; }
+      okCount++;
+    });
+    console.log(`[Chat] Group subjects: ${okCount} OK, ${failCount} failed, total ${groups.length}`);
   }
 
   async function chatFetchConversations() {
@@ -3790,9 +4101,9 @@
         if (archData.length) {
           console.log('[Chat] findChats (archive:true) sample:', JSON.stringify(archData[0]).slice(0, 800));
           // Check if archive result is different from normal
-          const normalIds = new Set(data.map(c => c.id || c.remoteJid));
-          const archOnlyIds = archData.filter(c => !normalIds.has(c.id || c.remoteJid));
-          console.log('[Chat] archive-only items (not in normal):', archOnlyIds.length, archOnlyIds.map(c => c.id || c.remoteJid));
+          const normalIds = new Set(data.map(c => c.remoteJid || c.id));
+          const archOnlyIds = archData.filter(c => !normalIds.has(c.remoteJid || c.id));
+          console.log('[Chat] archive-only items (not in normal):', archOnlyIds.length, archOnlyIds.map(c => c.remoteJid || c.id));
         }
         console.log('[Chat] findChats (where.archived:true) count:', archData2.length);
         if (archData2.length) {
@@ -3804,7 +4115,7 @@
       const seenJids = new Set();
 
       // Parse normal chats
-      const convs = [];
+      let convs = [];
       data.forEach(c => {
         const parsed = _chatParseConv(c, false);
         if (!parsed.id || parsed.id === 'status@broadcast') return;
@@ -3818,11 +4129,11 @@
       // exclusively in the archive response and NOT in the normal response.
       // (If the API filter is broken, archive call returns the same list as normal,
       //  so we must NOT blindly mark everything as archived.)
-      const normalJids = new Set(data.map(c => (c.id || c.remoteJid || '')));
+      const normalJids = new Set(data.map(c => (c.remoteJid || c.id || '')));
       const apiDetectedArchived = [];
       const processArchived = (items) => {
         items.forEach(c => {
-          const jid = c.id || c.remoteJid || '';
+          const jid = c.remoteJid || c.id || '';
           if (!jid || jid === 'status@broadcast') return;
           // Only consider it archived if it's NOT in the normal response
           // (archive-only item = truly archived on WhatsApp's side)
@@ -3843,7 +4154,7 @@
 
       // Also scan normal data for any archive-like flags (multiple field names)
       data.forEach(c => {
-        const jid = c.id || c.remoteJid || '';
+        const jid = c.remoteJid || c.id || '';
         // Check all possible archive field names from Baileys/Evolution
         if (c.archived || c.archive || c.isArchived || c.archiveAtTimestamp || c.archiveV2) {
           if (!apiDetectedArchived.includes(jid)) apiDetectedArchived.push(jid);
@@ -3869,6 +4180,61 @@
         if (!a.pinned && b.pinned) return 1;
         return (b.lastMsgTimestamp || 0) - (a.lastMsgTimestamp || 0);
       });
+
+      // ── Deduplicate LID / phone JID pairs ──
+      // WhatsApp assigns both @lid and @s.whatsapp.net JIDs to the same contact.
+      // Detect duplicates via matching profile picture URLs and merge them.
+      chatState.jidAliases = chatState.jidAliases || {};  // secondary → primary
+      const picMap = {};
+      convs.forEach(c => {
+        if (c.profilePicUrl && !c.isGroup) {
+          (picMap[c.profilePicUrl] = picMap[c.profilePicUrl] || []).push(c);
+        }
+      });
+      const removeIds = new Set();
+      Object.values(picMap).forEach(group => {
+        if (group.length < 2) return;
+        const lids = group.filter(c => c.id.endsWith('@lid'));
+        const phones = group.filter(c => c.id.endsWith('@s.whatsapp.net'));
+        if (!lids.length || !phones.length) return;
+        // For each LID+phone pair, merge into the one with the best name / most recent activity
+        lids.forEach(lid => {
+          phones.forEach(phone => {
+            const lidHasName = lid.name && !/^\d+$/.test(lid.name);
+            const phoneHasName = phone.name && !/^\d+$/.test(phone.name);
+            // Primary = the one with a real name, or the most recent
+            let primary, secondary;
+            if (lidHasName && !phoneHasName) { primary = lid; secondary = phone; }
+            else if (phoneHasName && !lidHasName) { primary = phone; secondary = lid; }
+            else { primary = (phone.lastMsgTimestamp || 0) >= (lid.lastMsgTimestamp || 0) ? phone : lid; secondary = primary === phone ? lid : phone; }
+            // Merge metadata
+            if (!primary.name || /^\d+$/.test(primary.name)) primary.name = secondary.name;
+            primary.unreadCount = (primary.unreadCount || 0) + (secondary.unreadCount || 0);
+            if ((secondary.lastMsgTimestamp || 0) > (primary.lastMsgTimestamp || 0)) {
+              primary.lastMsgTimestamp = secondary.lastMsgTimestamp;
+              primary.lastMessage = secondary.lastMessage;
+              primary.fromMe = secondary.fromMe;
+            }
+            chatState.jidAliases[secondary.id] = primary.id;
+            removeIds.add(secondary.id);
+          });
+        });
+      });
+      if (removeIds.size > 0) {
+        convs = convs.filter(c => !removeIds.has(c.id));
+        console.log(`[Chat] Deduplicated ${removeIds.size} LID/phone duplicates. Aliases:`, chatState.jidAliases);
+      }
+
+      // Fetch authoritative group subjects from the group metadata API
+      // (findChats pushName is unreliable for groups — returns last sender's name).
+      // Only run on first load — verified names are then cached in chatState.contacts
+      // and protected in _chatParseConv, so repeating every 5s poll is unnecessary
+      // and causes name flickering when the API call is slow.
+      if (!chatState._groupSubjectsFetched) {
+        chatState._groupSubjectsFetched = true;
+        await chatFetchGroupSubjects(convs);
+      }
+
       await chatDbPutMany('chat_conversations', convs);
       chatState.conversations = convs;
       const archivedCount = convs.filter(c => c.archived).length;
@@ -3881,23 +4247,96 @@
   async function chatFetchMessages(jid) {
     try {
       const cfg = getCfg();
-      console.log('[Chat] fetchMessages for:', jid);
-      const data = await chatApiCall(`/chat/findMessages/${cfg.instance}`, {
-        where: { key: { remoteJid: jid } }
+      // Collect alias JIDs (LID/phone dedup) for fetching messages from both
+      const aliasJids = new Set([jid]);
+      Object.entries(chatState.jidAliases || {}).forEach(([sec, pri]) => {
+        if (pri === jid) aliasJids.add(sec);
+        if (sec === jid) aliasJids.add(pri);
       });
-      console.log('[Chat] findMessages raw response type:', typeof data, Array.isArray(data) ? 'array len=' + data.length : (data && data.messages ? 'obj with messages len=' + data.messages.length : 'other'));
-      let msgs = Array.isArray(data) ? data : (data && Array.isArray(data.messages)) ? data.messages : [];
-      // Client-side filter (workaround for Evolution API bug where remoteJid filter doesn't work)
+      console.log('[Chat] fetchMessages for:', jid, aliasJids.size > 1 ? `(+aliases: ${[...aliasJids].filter(j=>j!==jid).join(', ')})` : '');
+
+      // Try multiple request formats — Evolution API varies across versions
+      let data = null;
+      let lastErr = null;
+
+      // Strategy 1: POST with where.key.remoteJid filter
+      try {
+        data = await chatApiCall(`/chat/findMessages/${cfg.instance}`, {
+          where: { key: { remoteJid: jid } }
+        });
+      } catch (e) { lastErr = e; console.warn('[Chat] findMessages strategy 1 failed:', e.message); }
+
+      // Strategy 2: POST with just remoteJid (flat filter)
+      if (!data || (typeof data === 'object' && !Array.isArray(data) && !data.messages && !data.records)) {
+        try {
+          data = await chatApiCall(`/chat/findMessages/${cfg.instance}`, {
+            where: { remoteJid: jid }
+          });
+        } catch (e) { lastErr = e; console.warn('[Chat] findMessages strategy 2 failed:', e.message); }
+      }
+
+      // Strategy 3: No filter (fetch all, filter client-side)
+      if (!data || (typeof data === 'object' && !Array.isArray(data) && !data.messages && !data.records)) {
+        try {
+          data = await chatApiCall(`/chat/findMessages/${cfg.instance}`, {});
+        } catch (e) { lastErr = e; console.warn('[Chat] findMessages strategy 3 failed:', e.message); }
+      }
+
+      console.log('[Chat] findMessages raw response:', typeof data, JSON.stringify(data).slice(0, 500));
+
+      // Extract message array from various response shapes
+      let msgs = [];
+      if (Array.isArray(data)) {
+        msgs = data;
+      } else if (data && typeof data === 'object') {
+        // Try common nested structures: data.messages, data.records, data.messages.records, data.data
+        if (Array.isArray(data.messages)) msgs = data.messages;
+        else if (Array.isArray(data.records)) msgs = data.records;
+        else if (data.messages && Array.isArray(data.messages.records)) msgs = data.messages.records;
+        else if (Array.isArray(data.data)) msgs = data.data;
+        else {
+          // Last resort: find the first array property
+          for (const key of Object.keys(data)) {
+            if (Array.isArray(data[key]) && data[key].length > 0) {
+              console.log('[Chat] findMessages: using array from key:', key, 'length:', data[key].length);
+              msgs = data[key];
+              break;
+            }
+          }
+        }
+      }
+
+      console.log('[Chat] findMessages extracted msgs count:', msgs.length);
+
+      // Also fetch messages from alias JIDs (LID/phone dedup)
+      for (const aliasJid of aliasJids) {
+        if (aliasJid === jid) continue;
+        try {
+          const aliasData = await chatApiCall(`/chat/findMessages/${cfg.instance}`, {
+            where: { key: { remoteJid: aliasJid } }
+          });
+          let aliasMsgs = [];
+          if (Array.isArray(aliasData)) aliasMsgs = aliasData;
+          else if (aliasData?.messages?.records) aliasMsgs = aliasData.messages.records;
+          else if (Array.isArray(aliasData?.messages)) aliasMsgs = aliasData.messages;
+          else if (Array.isArray(aliasData?.records)) aliasMsgs = aliasData.records;
+          if (aliasMsgs.length) {
+            console.log(`[Chat] alias ${aliasJid}: fetched ${aliasMsgs.length} additional messages`);
+            msgs = msgs.concat(aliasMsgs);
+          }
+        } catch (e) { console.warn('[Chat] alias fetch failed for', aliasJid, e.message); }
+      }
+
+      // Client-side filter — accept messages from primary + alias JIDs
       const beforeFilter = msgs.length;
       msgs = msgs.filter(m => {
         const mJid = m.key?.remoteJid || m.remoteJid || '';
-        return mJid === jid;
+        return aliasJids.has(mJid);
       });
-      console.log('[Chat] findMessages: total=', beforeFilter, 'after jid filter=', msgs.length);
+      console.log('[Chat] findMessages: total=', beforeFilter, 'after jid filter=', msgs.length, 'aliasJids:', [...aliasJids]);
       const parsed = msgs.map(m => chatParseMessage(m, jid)).filter(Boolean);
       console.log('[Chat] parsed messages:', parsed.length);
       if (parsed.length) await chatDbPutMany('chat_messages', parsed);
-      // Extract pushName from incoming messages to update contact names
       chatUpdateContactNamesFromMessages(jid, parsed);
       return parsed;
     } catch (e) { console.warn('chatFetchMessages error:', e); return []; }
@@ -3968,7 +4407,7 @@
   function chatParseMessage(m, fallbackJid) {
     try {
       const key = m.key || {};
-      const msg = m.message || {};
+      let msg = m.message || {};
       const jid = key.remoteJid || m.remoteJid || fallbackJid;
       const id = key.id || m.id || m.messageId || (Date.now() + Math.random()).toString();
       const fromMe = key.fromMe || false;
@@ -3977,6 +4416,22 @@
 
       let type = 'text', text = '', caption = '', mediaUrl = '', mimetype = '', fileName = '', thumbBase64 = '';
       const pushName = m.pushName || '';
+
+      // Unwrap container/wrapper message types (can be nested, so loop)
+      for (let _u = 0; _u < 3; _u++) {
+        if (msg.ephemeralMessage?.message) msg = msg.ephemeralMessage.message;
+        else if (msg.viewOnceMessage?.message) msg = msg.viewOnceMessage.message;
+        else if (msg.viewOnceMessageV2?.message) msg = msg.viewOnceMessageV2.message;
+        else if (msg.documentWithCaptionMessage?.message) msg = msg.documentWithCaptionMessage.message;
+        else if (msg.editedMessage?.message) msg = msg.editedMessage.message;
+        else if (msg.ptvMessage) { msg.videoMessage = msg.ptvMessage; break; }
+        else break;
+      }
+
+      // Skip pure noise message types (only skip if no content fields are present)
+      const noiseOnly = new Set(['protocolMessage','messageHistoryBundle','encReactionMessage','senderKeyDistributionMessage']);
+      const msgKeys = Object.keys(msg).filter(k => k !== 'messageContextInfo' && k !== 'messageSecret');
+      if (msgKeys.length > 0 && msgKeys.every(k => noiseOnly.has(k))) return null;
 
       if (msg.conversation) { type = 'text'; text = msg.conversation; }
       else if (msg.extendedTextMessage) { type = 'text'; text = msg.extendedTextMessage.text || ''; }
@@ -3987,8 +4442,63 @@
       else if (msg.stickerMessage) { type = 'sticker'; mediaUrl = msg.stickerMessage.url || ''; }
       else if (msg.locationMessage) { type = 'location'; text = `📍 ${msg.locationMessage.degreesLatitude},${msg.locationMessage.degreesLongitude}`; }
       else if (msg.contactMessage) { type = 'contact'; text = `👤 ${msg.contactMessage.displayName || 'Contact'}`; }
-      else if (msg.reactionMessage) { return null; /* skip reactions as standalone messages */ }
-      else { text = m.body || msg.text || ''; if (!text && Object.keys(msg).length === 0 && m.messageType) text = `[${m.messageType}]`; }
+      else if (msg.contactsArrayMessage) { type = 'contact'; text = `👥 ${(msg.contactsArrayMessage.contacts||[]).map(c=>c.displayName||'').filter(Boolean).join(', ') || 'Contacts'}`; }
+      else if (msg.reactionMessage) { return null; }
+      else if (msg.pollCreationMessage || msg.pollCreationMessageV3) {
+        const poll = msg.pollCreationMessage || msg.pollCreationMessageV3;
+        type = 'poll';
+        text = poll.name || '';
+        // Store options and poll metadata for the render phase
+        caption = JSON.stringify({
+          options: (poll.options || []).map(o => o.optionName || o.name || ''),
+          selectableCount: poll.selectableOptionsCount || 1,
+          pollId: id,
+        });
+      }
+      else if (msg.pollUpdateMessage) {
+        const upd = msg.pollUpdateMessage;
+        const pollRefId = upd.pollCreationMessageKey?.id || '';
+        const selected = upd.vote?.selectedOptions || [];
+        if (!pollRefId || !selected.length) return null;
+        type = 'pollVote';
+        text = pollRefId;       // points to the poll msg id
+        caption = JSON.stringify({ selected, voter: pushName || key.participant || m.participant || '', ts: timestamp });
+      }
+      else if (msg.albumMessage) {
+        const album = msg.albumMessage;
+        const imgCount = album.expectedImageCount || 0;
+        const vidCount = album.expectedVideoCount || 0;
+        const parts = [];
+        if (imgCount) parts.push(`${imgCount} 📷`);
+        if (vidCount) parts.push(`${vidCount} 🎥`);
+        type = 'text'; text = `🖼 Album: ${parts.join(', ') || 'media'}`;
+      }
+      else if (msg.groupInviteMessage) { type = 'text'; text = `👥 Group invite: ${msg.groupInviteMessage.groupName || 'Group'}`; }
+      else if (msg.buttonsMessage) { type = 'text'; text = msg.buttonsMessage.contentText || msg.buttonsMessage.text || '🔲 Buttons message'; }
+      else if (msg.buttonsResponseMessage) { type = 'text'; text = msg.buttonsResponseMessage.selectedDisplayText || '🔲 Button reply'; }
+      else if (msg.listMessage) { type = 'text'; text = msg.listMessage.title || msg.listMessage.description || '📋 List'; }
+      else if (msg.listResponseMessage) { type = 'text'; text = msg.listResponseMessage.title || '📋 List reply'; }
+      else if (msg.templateMessage) {
+        const ht = msg.templateMessage.hydratedTemplate || msg.templateMessage.hydratedFourRowTemplate || {};
+        type = 'text'; text = ht.hydratedContentText || ht.hydratedBodyText || '📋 Template message';
+      }
+      else if (msg.templateButtonReplyMessage) { type = 'text'; text = msg.templateButtonReplyMessage.selectedDisplayText || '📋 Template reply'; }
+      else if (msg.liveLocationMessage) { type = 'location'; text = `📍 Live location`; }
+      else if (msg.orderMessage) { type = 'text'; text = `🛒 Order`; }
+      else if (msg.invoiceMessage) { type = 'text'; text = `🧾 Invoice`; }
+      else if (msg.paymentMessage || msg.sendPaymentMessage || msg.requestPaymentMessage) { type = 'text'; text = `💳 Payment`; }
+      else if (msg.call) { type = 'text'; text = `📞 Call`; }
+      else if (msg.chat) { type = 'text'; text = msg.chat; }
+      else {
+        text = m.body || msg.text || '';
+        if (!text) {
+          const skipKeys = new Set(['messageContextInfo', 'messageSecret', 'senderKeyDistributionMessage', 'deviceSentMessage']);
+          const mainKey = Object.keys(msg).find(k => !skipKeys.has(k));
+          text = mainKey ? `[${mainKey}]` : (m.messageType ? `[${m.messageType}]` : '');
+        }
+      }
+      // Skip messages with absolutely no content
+      if (!text && !mediaUrl && !caption && type === 'text') return null;
 
       // Quoted message
       let quotedMsg = null;
@@ -4005,8 +4515,16 @@
 
       const status = m.status || (fromMe ? 'SERVER_ACK' : '');
 
-      const senderJid = key.participant || m.participant || '';
-      return { id, remoteJid: jid, fromMe, timestamp, type, text, caption, mediaUrl, mimetype, fileName, thumbBase64, quotedMsg, status, pushName, senderJid };
+      let senderJid = key.participant || m.participant || '';
+      // If pushName is actually a JID (API bug), use it as senderJid and clear pushName
+      let resolvedPushName = pushName;
+      if (pushName.includes('@')) {
+        if (!senderJid) senderJid = pushName;
+        resolvedPushName = '';  // will be resolved at render time via chatResolveName
+      }
+      // Also try participantAlt for better JID mapping
+      if (!senderJid && key.participantAlt) senderJid = key.participantAlt;
+      return { id, remoteJid: jid, fromMe, timestamp, type, text, caption, mediaUrl, mimetype, fileName, thumbBase64, quotedMsg, status, pushName: resolvedPushName, senderJid };
     } catch (e) { console.warn('chatParseMessage error:', e); return null; }
   }
 
@@ -4223,23 +4741,29 @@
     console.log('[Chat] chatInit starting...');
     // One-time cleanup v3: previous bug saved ALL jids as archived in both
     // localStorage and IndexedDB cache. Nuke both so chats reload fresh.
-    if (!localStorage.getItem('wa_chat_archive_v3_cleaned')) {
+    // v4: JID format changed from DB ids to remoteJid — must clear stale caches
+    // v5: group contact.displayName was contaminated with sender names — clear all
+    const cleanupVersion = 'wa_chat_archive_v5_cleaned';
+    if (!localStorage.getItem(cleanupVersion)) {
       localStorage.removeItem('wa_chat_archived');
       localStorage.removeItem('wa_chat_archive_v2_cleaned');
-      localStorage.setItem('wa_chat_archive_v3_cleaned', '1');
-      // Also clear cached conversations from IndexedDB (they have archived:true on everything)
+      localStorage.removeItem('wa_chat_archive_v3_cleaned');
+      localStorage.removeItem('wa_chat_archive_v4_cleaned');
+      localStorage.setItem(cleanupVersion, '1');
+      // Clear ALL cached data from IndexedDB (contaminated group names)
       try {
         const db = await new Promise((resolve, reject) => {
           const req = indexedDB.open(DB_NAME, DB_VERSION);
           req.onsuccess = () => resolve(req.result);
           req.onerror = () => reject(req.error);
         });
-        const tx = db.transaction('chat_conversations', 'readwrite');
-        tx.objectStore('chat_conversations').clear();
+        const stores = ['chat_conversations', 'chat_contacts', 'chat_messages'];
+        const tx = db.transaction(stores, 'readwrite');
+        stores.forEach(s => tx.objectStore(s).clear());
         await new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onerror = reject; });
         db.close();
       } catch (e) { console.warn('[Chat] cleanup IndexedDB error:', e); }
-      console.log('[Chat] v3 cleanup: cleared corrupted archive data from localStorage + IndexedDB');
+      console.log('[Chat] v5 cleanup: cleared contaminated group name cache');
     }
     // Load from cache first for instant render
     try {
@@ -4288,7 +4812,7 @@
     // Update header
     const name = chatResolveName(jid);
     document.getElementById('chat-header-name').textContent = name;
-    document.getElementById('chat-header-status').textContent = chatIsGroup(jid) ? 'Group' : chatExtractNumber(jid);
+    document.getElementById('chat-header-status').textContent = chatIsGroup(jid) ? 'Group' : (jid.endsWith('@lid') ? 'Chat' : chatExtractNumber(jid));
     const avatarEl = document.getElementById('chat-header-avatar');
     const contact = chatState.contacts[jid];
     const conv = chatState.conversations.find(c => c.id === jid);
@@ -4451,25 +4975,58 @@
       el.innerHTML = '<div class="flex items-center justify-center h-full text-gray-400 text-sm">No messages yet. Say hello!</div>';
       return;
     }
+
+    // Build poll vote map: pollMsgId → { optionName → [voterName, ...] }
+    const pollVoteMap = {};
+    const allMsgs = chatState.allFetchedMessages;
+    allMsgs.forEach(m => {
+      if (m.type !== 'pollVote') return;
+      const pollId = m.text;  // text holds the referenced poll msg id
+      try {
+        const { selected, voter } = JSON.parse(m.caption || '{}');
+        if (!pollVoteMap[pollId]) pollVoteMap[pollId] = {};
+        const voterLabel = voter ? chatResolveName(voter) : '';
+        // Each voter can only vote once per option — use voter as key to deduplicate
+        const voterKey = voter || m.id;
+        if (!pollVoteMap[pollId].__voters) pollVoteMap[pollId].__voters = {};
+        // Remove previous vote from this voter (they may have changed their vote)
+        const prev = pollVoteMap[pollId].__voters[voterKey];
+        if (prev) {
+          prev.forEach(opt => {
+            if (pollVoteMap[pollId][opt]) {
+              pollVoteMap[pollId][opt] = pollVoteMap[pollId][opt].filter(v => v !== voterLabel);
+            }
+          });
+        }
+        // Record new vote
+        pollVoteMap[pollId].__voters[voterKey] = selected;
+        selected.forEach(opt => {
+          if (!pollVoteMap[pollId][opt]) pollVoteMap[pollId][opt] = [];
+          if (!pollVoteMap[pollId][opt].includes(voterLabel)) {
+            pollVoteMap[pollId][opt].push(voterLabel);
+          }
+        });
+      } catch(e) {}
+    });
+
     let html = '';
-    // Show "scroll up for more" indicator if there's older history
     if (!chatState.historyFullyLoaded) {
       html += '<div class="flex justify-center py-3"><span class="text-xs text-gray-400 bg-white/80 px-3 py-1 rounded-full">↑ Scroll up for older messages</span></div>';
     }
     let lastDateStr = '';
     chatState.messages.forEach(m => {
-      // Date separator
+      if (m.type === 'pollVote') return;  // votes are baked into poll bubbles, not rendered alone
       const dateStr = chatFormatDateSep(m.timestamp);
       if (dateStr !== lastDateStr) {
         html += `<div class="flex justify-center my-3"><span class="chat-date-sep">${dateStr}</span></div>`;
         lastDateStr = dateStr;
       }
-      html += chatRenderBubble(m);
+      html += chatRenderBubble(m, pollVoteMap);
     });
     el.innerHTML = html;
   }
 
-  function chatRenderBubble(m) {
+  function chatRenderBubble(m, pollVoteMap) {
     const align = m.fromMe ? 'justify-end' : 'justify-start';
     const bubbleCls = m.fromMe ? 'chat-bubble-out' : 'chat-bubble-in';
     const maxW = 'max-w-[65%]';
@@ -4487,8 +5044,19 @@
 
     // Group sender name
     let senderHtml = '';
-    if (!m.fromMe && chatIsGroup(m.remoteJid) && m.pushName) {
-      senderHtml = `<p class="text-xs font-semibold mb-0.5" style="color:${chatAvatarColor(m.pushName)}">${chatEsc(m.pushName)}</p>`;
+    if (!m.fromMe && chatIsGroup(m.remoteJid)) {
+      const senderColorKey = m.senderJid || m.pushName || '';
+      // Resolve display name: pushName > contact lookup > extract number
+      let senderDisplay = '';
+      if (m.pushName && !m.pushName.includes('@')) {
+        senderDisplay = m.pushName;
+      } else {
+        const lookupJid = m.senderJid || m.pushName || '';
+        if (lookupJid) senderDisplay = chatResolveName(lookupJid);
+      }
+      if (senderDisplay) {
+        senderHtml = `<p class="text-xs font-semibold mb-0.5" style="color:${chatAvatarColor(senderColorKey)}">${chatEsc(senderDisplay)}</p>`;
+      }
     }
 
     // Content
@@ -4532,6 +5100,61 @@
       case 'contact':
         contentHtml = `<p class="text-sm text-gray-900">${chatEsc(m.text)}</p>`;
         break;
+      case 'poll': {
+        let pollMeta = {};
+        try { pollMeta = JSON.parse(m.caption || '{}'); } catch(e) {}
+        const options = pollMeta.options || [];
+        const pollId = pollMeta.pollId || m.id;
+        const votes = (pollVoteMap && pollVoteMap[pollId]) || {};
+        const allVoters = new Set();
+        options.forEach(opt => (votes[opt] || []).forEach(v => allVoters.add(v)));
+        const totalVotes = allVoters.size;
+        const maxVotes = Math.max(...options.map(opt => (votes[opt] || []).length), 0);
+        const selectLabel = pollMeta.selectableCount > 1
+          ? `Select up to ${pollMeta.selectableCount}`
+          : 'Select one';
+        const optionsHtml = options.map(opt => {
+          const voters = votes[opt] || [];
+          const count = voters.length;
+          const pct = totalVotes ? Math.round((count / totalVotes) * 100) : 0;
+          const isLeader = count > 0 && count === maxVotes;
+          const barColor = isLeader ? 'bg-gray-900' : 'bg-gray-300';
+          const barH = count > 0 ? 'h-[3px]' : 'h-[2px]';
+          // Voter avatars (up to 3 small circles)
+          const avatars = voters.slice(0, 3).map(v => {
+            const initials = v ? v.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2) : '?';
+            const color = chatAvatarColor(v);
+            return `<span class="inline-flex items-center justify-center w-5 h-5 rounded-full text-[8px] font-bold text-white -ml-1 first:ml-0 ring-1 ring-white" style="background:${color}">${initials}</span>`;
+          }).join('');
+          return `<div class="py-2 border-b border-gray-100 last:border-0">
+            <div class="flex items-center gap-2">
+              <div class="w-5 h-5 rounded-full border-2 border-gray-400 shrink-0 flex items-center justify-center">
+                ${count > 0 ? '<div class="w-2.5 h-2.5 rounded-full bg-gray-400"></div>' : ''}
+              </div>
+              <span class="flex-1 text-[14px] text-gray-900 leading-snug">${chatEsc(opt)}</span>
+              <div class="flex items-center gap-1.5 shrink-0">
+                ${avatars ? `<div class="flex items-center">${avatars}</div>` : ''}
+                <span class="text-[13px] text-gray-600 min-w-[12px] text-right">${count > 0 ? count : ''}</span>
+              </div>
+            </div>
+            <div class="ml-7 mt-1.5 w-full ${barH} rounded-full overflow-hidden bg-gray-200">
+              <div class="${barColor} h-full rounded-full transition-all duration-300" style="width:${pct}%"></div>
+            </div>
+          </div>`;
+        }).join('');
+        contentHtml = `<div class="w-[280px]">
+          <p class="text-[15px] text-gray-900 leading-snug font-normal mb-1">${chatEsc(m.text)}</p>
+          <div class="flex items-center gap-1 text-xs text-gray-500 mb-2">
+            <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span>${selectLabel}</span>
+          </div>
+          <div class="divide-y divide-gray-100">${optionsHtml}</div>
+          <div class="border-t border-gray-200 mt-1 pt-2 text-center">
+            <span class="text-[13px] font-medium text-[#00a884] cursor-pointer hover:underline" onclick="chatShowPollDetails('${chatEsc(pollId)}')">View votes</span>
+          </div>
+        </div>`;
+        break;
+      }
       default:
         contentHtml = `<p class="text-sm text-gray-900 whitespace-pre-wrap break-words">${chatEsc(m.text || `[${m.type}]`)}</p>`;
     }
@@ -4546,6 +5169,93 @@
         ${senderHtml}${quotedHtml}${contentHtml}${timeHtml}
       </div>
     </div>`;
+  }
+
+  function chatShowPollDetails(pollId) {
+    const panel = document.getElementById('poll-details-panel');
+    const content = document.getElementById('poll-details-content');
+    if (!panel || !content) return;
+
+    // Gather poll msg + all votes
+    const allMsgs = chatState.allFetchedMessages;
+    const pollMsg = allMsgs.find(m => m.type === 'poll' && m.id === pollId);
+    if (!pollMsg) return;
+
+    let pollMeta = {};
+    try { pollMeta = JSON.parse(pollMsg.caption || '{}'); } catch(e) {}
+    const options = pollMeta.options || [];
+
+    // Build per-option voter list with timestamps
+    const optionVoters = {};   // optionName → [{voter, ts}]
+    options.forEach(opt => { optionVoters[opt] = []; });
+    allMsgs.forEach(m => {
+      if (m.type !== 'pollVote' || m.text !== pollId) return;
+      try {
+        const { selected, voter, ts } = JSON.parse(m.caption || '{}');
+        selected.forEach(opt => {
+          if (optionVoters[opt] !== undefined) {
+            optionVoters[opt].push({ voter: voter || 'Unknown', ts: ts || 0 });
+          }
+        });
+      } catch(e) {}
+    });
+
+    const totalVoters = new Set(
+      allMsgs.filter(m => m.type === 'pollVote' && m.text === pollId)
+        .map(m => { try { return JSON.parse(m.caption).voter; } catch(e) { return ''; } })
+    ).size;
+
+    const formatVoteTs = ts => {
+      if (!ts) return '';
+      const d = new Date(ts);
+      const now = new Date();
+      const isToday = d.toDateString() === now.toDateString();
+      const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return isToday ? `Today at ${time}` : `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} at ${time}`;
+    };
+
+    const optionsHtml = options.map(opt => {
+      const voters = optionVoters[opt] || [];
+      const count = voters.length;
+      const badge = count > 0
+        ? `<span class="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full font-medium">${count} vote${count !== 1 ? 's' : ''} <span class="text-yellow-500">★</span></span>`
+        : `<span class="inline-flex items-center text-xs bg-gray-200 text-gray-500 px-2 py-0.5 rounded-full font-medium">0 votes</span>`;
+
+      const voterRows = voters.map(({ voter, ts }) => {
+        const initials = voter.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
+        const color = chatAvatarColor(voter);
+        return `<div class="flex items-center gap-3 py-2">
+          <div class="w-10 h-10 rounded-full shrink-0 flex items-center justify-center text-white text-sm font-bold" style="background:${color}">${initials}</div>
+          <div>
+            <p class="text-[14px] font-medium text-gray-900">${chatEsc(voter)}</p>
+            <p class="text-xs text-gray-400">${chatEsc(formatVoteTs(ts))}</p>
+          </div>
+        </div>`;
+      }).join('');
+
+      return `<div class="mb-4">
+        <div class="flex items-center justify-between py-2">
+          <span class="text-[14px] text-gray-900">${chatEsc(opt)}</span>
+          ${badge}
+        </div>
+        ${voterRows}
+        <div class="border-b border-gray-100"></div>
+      </div>`;
+    }).join('');
+
+    content.innerHTML = `
+      <p class="text-[16px] text-gray-900 leading-snug font-normal mb-1">${chatEsc(pollMsg.text)}</p>
+      <p class="text-xs text-gray-500 mb-5">${totalVoters} voted</p>
+      ${optionsHtml}`;
+
+    panel.classList.remove('hidden');
+    panel.style.removeProperty('display');
+    panel.style.display = 'flex';
+  }
+
+  function chatClosePollDetails() {
+    const panel = document.getElementById('poll-details-panel');
+    if (panel) { panel.classList.add('hidden'); panel.style.display = 'none'; }
   }
 
   function chatLinkify(text) {
@@ -4573,7 +5283,7 @@
     chatAutoResize(input);
 
     const jid = chatState.activeJid;
-    const number = chatExtractNumber(jid);
+    const number = chatResolveApiNumber(jid);
     const now = Date.now();
 
     // Optimistic local message
@@ -4640,7 +5350,7 @@
     if (new Date(dt).getTime() <= Date.now()) return alert('Scheduled time must be in the future.');
 
     const jid = chatState.activeJid;
-    const number = chatExtractNumber(jid);
+    const number = chatResolveApiNumber(jid);
     const job = {
       id: `job_${Date.now()}`,
       createdAt: new Date().toISOString(),
@@ -4651,6 +5361,8 @@
       status: 'pending'
     };
     await saveJob(job);
+    await renderScheduledJobs();
+    updateScheduledBadge();
     input.value = '';
     chatAutoResize(input);
     document.getElementById('chat-schedule-panel').classList.add('hidden');
@@ -4662,7 +5374,7 @@
   async function chatSendMediaMsg(file) {
     if (!file || !chatState.activeJid) return;
     const jid = chatState.activeJid;
-    const number = chatExtractNumber(jid);
+    const number = chatResolveApiNumber(jid);
     const isImage = file.type.startsWith('image/');
     const isVideo = file.type.startsWith('video/');
     const isAudio = file.type.startsWith('audio/');
