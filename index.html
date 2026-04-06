@@ -3936,10 +3936,11 @@
     activeFilter: 'all', // all | unread | favorites | groups
     typingTimer: null,
     initialized: false,
-    _verifiedGroupNames: {},  // in-memory only; populated by chatFetchGroupSubjects
+    _verifiedGroupNames: (() => { try { return JSON.parse(localStorage.getItem('chat_verifiedGroupNames') || '{}'); } catch(e) { return {}; } })(), // persisted in localStorage
     _failedPicUrls: new Set(), // URLs that returned 403/error — skip on future renders
     selectMode: false,
     selectedMsgs: new Set(),
+    markedReadAt: (() => { try { return JSON.parse(localStorage.getItem('chat_markedReadAt') || '{}'); } catch(e) { return {}; } })(), // jid → lastMsgTimestamp; persisted in localStorage
   };
 
   // ── Avatar colors (deterministic by jid) ─────────────────────────────
@@ -4117,20 +4118,17 @@
     const lastMsg = c.lastMessage || c.lastMsgContent || {};
     const contact = chatState.contacts[jid];
 
-    // Name resolution priority:
-    // 1. Contact saved name (phone address book)
     // Name resolution:
-    // Groups:  API pushName (group subject) → contact savedName → fallback
-    // 1:1:    contact savedName/displayName → API pushName → last incoming msg pushName → fallback
+    // Groups:  verifiedGroupName (group metadata API) → c.subject (findChats subject field) → c.name → fallback
+    // 1:1:    contact savedName/displayName → c.pushName → c.name → fallback
+    // NOTE: c.pushName in findChats for groups = LAST SENDER's name, NOT the group subject — never use it for groups
     const chatPushName = c.pushName || c.name || c.subject || '';
     let name;
     if (chatIsGroup(jid)) {
-      // For groups, the ONLY reliable name source is chatFetchGroupSubjects (group API).
-      // The findChats pushName is the LAST SENDER's name, NOT the group subject.
-      // contact.displayName in IndexedDB may also be contaminated from previous bad writes.
-      // So we use a dedicated in-memory cache that can ONLY be written by the group API.
-      const verifiedName = chatState._verifiedGroupNames && chatState._verifiedGroupNames[jid];
-      name = verifiedName || chatPushName || chatExtractNumber(jid);
+      // Priority: verified from group metadata API → subject field from findChats → name field → number fallback
+      // c.pushName is intentionally excluded: it holds the last sender's name for groups, not the group subject.
+      const verifiedName = chatState._verifiedGroupNames?.[jid];
+      name = verifiedName || c.subject || c.name || chatExtractNumber(jid);
       // Do NOT write to contact.displayName for groups here — only chatFetchGroupSubjects may do that.
     } else {
       const contactName = (contact && contact.savedName) || (contact && contact.displayName && !/^\d+$/.test(contact.displayName) ? contact.displayName : '');
@@ -4189,11 +4187,10 @@
 
   async function chatFetchGroupSubjects(convs) {
     const cfg = getCfg();
-    const groups = convs.filter(c => chatIsGroup(c.id));
+    // Only fetch groups that don't have a verified name yet — skip ones already cached
+    const groups = convs.filter(c => chatIsGroup(c.id) && !chatState._verifiedGroupNames[c.id]);
     if (!groups.length) return;
-    // Initialize the verified names cache (in-memory only — never contaminated by IndexedDB)
-    if (!chatState._verifiedGroupNames) chatState._verifiedGroupNames = {};
-    // Fetch group metadata in parallel
+    // Fetch group metadata in parallel for unverified groups only
     const results = await Promise.allSettled(
       groups.map(g =>
         fetch(`${cfg.base}/group/findGroupInfos/${cfg.instance}?groupJid=${encodeURIComponent(g.id)}`, {
@@ -4221,6 +4218,9 @@
       okCount++;
     });
     console.log(`[Chat] Group subjects: ${okCount} OK, ${failCount} failed, total ${groups.length}`);
+    if (okCount > 0) {
+      try { localStorage.setItem('chat_verifiedGroupNames', JSON.stringify(chatState._verifiedGroupNames)); } catch(e) {}
+    }
   }
 
   async function chatFetchConversations() {
@@ -4430,22 +4430,36 @@
 
       // Fetch authoritative group subjects from the group metadata API
       // (findChats pushName is unreliable for groups — returns last sender's name).
-      // Only run on first load — verified names are then cached in chatState.contacts
-      // and protected in _chatParseConv, so repeating every 5s poll is unnecessary
-      // and causes name flickering when the API call is slow.
-      if (!chatState._groupSubjectsFetched) {
-        chatState._groupSubjectsFetched = true;
-        const groupCount = convs.filter(c => chatIsGroup(c.id)).length;
-        if (groupCount) chatSetLoadStatus(`Updating ${groupCount} group names...`);
+      // Fetch group subjects for any groups not yet verified.
+      // chatFetchGroupSubjects skips already-cached groups, so this is cheap on repeat calls.
+      // Only show the status bar if there are actually unverified groups to fetch.
+      const unverifiedGroupCount = convs.filter(c => chatIsGroup(c.id) && !chatState._verifiedGroupNames[c.id]).length;
+      if (unverifiedGroupCount) {
+        chatSetLoadStatus(`Updating ${unverifiedGroupCount} group names...`);
         await chatFetchGroupSubjects(convs);
       }
 
-      // Preserve unreadCount=0 for any conversation the user currently has open
-      // (the API may lag behind our mark-as-read call, especially for groups)
-      if (chatState.activeJid) {
-        const fresh = convs.find(c => c.id === chatState.activeJid);
-        if (fresh) fresh.unreadCount = 0;
-      }
+      // Preserve unreadCount=0 for the active chat and any recently-read chats.
+      // The Evolution API (especially for groups) can lag behind our mark-as-read
+      // call and keep returning a stale unreadCount for several poll cycles.
+      // We suppress that stale count until a genuinely newer message arrives.
+      convs.forEach(c => {
+        if (c.id === chatState.activeJid) {
+          c.unreadCount = 0;
+        } else if (chatState.markedReadAt[c.id] !== undefined) {
+          // Normalize both to ms numbers — API may return ISO strings or Unix ms
+          const lastTs = +new Date(c.lastMsgTimestamp);
+          const markedTs = +new Date(chatState.markedReadAt[c.id]);
+          if (lastTs <= markedTs) {
+            // No new messages since we marked it read — keep badge at 0
+            c.unreadCount = 0;
+          } else {
+            // A genuinely new message arrived — show it as unread and stop suppressing
+            delete chatState.markedReadAt[c.id];
+            try { localStorage.setItem('chat_markedReadAt', JSON.stringify(chatState.markedReadAt)); } catch(e) {}
+          }
+        }
+      });
       // Always assign to state first — UI must work even if DB write fails
       chatState.conversations = convs;
       const archivedCount = convs.filter(c => c.archived).length;
@@ -5276,7 +5290,15 @@
     try {
       // Always clear local unread count immediately when viewing a chat
       const conv = chatState.conversations.find(c => c.id === jid);
-      if (conv && conv.unreadCount > 0) { conv.unreadCount = 0; chatRenderList(); chatUpdateUnreadBadge(); }
+      if (conv && conv.unreadCount > 0) {
+        conv.unreadCount = 0;
+        // Record the last message timestamp at the moment we marked this read.
+        // chatFetchConversations will keep unreadCount=0 for this jid until a
+        // message arrives with a newer timestamp (i.e. genuinely new activity).
+        chatState.markedReadAt[jid] = conv.lastMsgTimestamp || Date.now();
+        try { localStorage.setItem('chat_markedReadAt', JSON.stringify(chatState.markedReadAt)); } catch(e) {}
+        chatRenderList(); chatUpdateUnreadBadge();
+      }
       // Only send API mark-as-read if this conversation is currently active and its
       // messages are loaded — otherwise chatState.messages belongs to a different chat
       if (chatState.activeJid !== jid) return;
