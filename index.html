@@ -60,15 +60,33 @@
     .emoji-picker { max-height:280px; overflow-y:auto; }
     .emoji-picker button { width:36px; height:36px; font-size:20px; cursor:pointer; border:none; background:none; border-radius:4px; }
     .emoji-picker button:hover { background:#f0f0f0; }
+    .queue-drag-handle { cursor:grab; color:#d1d5db; padding:0 4px; user-select:none; line-height:1; font-size:16px; }
+    .queue-drag-handle:hover { color:#6b7280; }
+    .queue-drag-handle:active { cursor:grabbing; }
+    .qitem-dragging { opacity:0.35; box-shadow:0 4px 16px rgba(0,0,0,.12); }
+    .qitem-drop-placeholder { border:2px dashed #22c55e; border-radius:12px; background:#f0fdf4; min-height:52px; transition:min-height .1s; }
     #chat-lightbox { background:rgba(0,0,0,.85); }
     #chat-input { min-height:40px; line-height:1.4; }
     #chat-input:focus { border-color:transparent !important; box-shadow:none !important; }
     .chat-ctx-menu { position:fixed; z-index:200; background:#fff; border:1px solid #e5e7eb; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,.12); min-width:160px; padding:4px 0; }
     .chat-ctx-menu button { display:flex; align-items:center; gap:8px; width:100%; padding:8px 16px; font-size:13px; border:none; background:none; cursor:pointer; color:#374151; }
     .chat-ctx-menu button:hover { background:#f3f4f6; }
-    .chat-react-picker { position:absolute; display:flex; gap:2px; background:#fff; border-radius:24px; box-shadow:0 2px 12px rgba(0,0,0,.15); padding:4px 8px; z-index:150; }
+    .chat-react-picker { position:fixed; display:flex; gap:2px; background:#fff; border-radius:24px; box-shadow:0 2px 12px rgba(0,0,0,.15); padding:4px 8px; z-index:500; }
     .chat-react-picker button { font-size:20px; border:none; background:none; cursor:pointer; padding:4px; border-radius:50%; }
     .chat-react-picker button:hover { background:#f0f0f0; }
+    .chat-reaction-badge { display:inline-flex; align-items:center; gap:2px; background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:2px 7px; font-size:15px; cursor:default; box-shadow:0 1px 3px rgba(0,0,0,.08); transition:transform .1s; }
+    .chat-reaction-badge:hover { transform:scale(1.12); }
+    .chat-reaction-count { font-size:11px; color:#374151; font-weight:600; margin-left:2px; }
+    .chat-reactions { display:flex; gap:4px; flex-wrap:wrap; margin-top:3px; }
+    .chat-select-toolbar { background:#075e54; color:#fff; display:flex; align-items:center; gap:10px; padding:10px 16px; shrink-0; }
+    .chat-select-toolbar button { background:rgba(255,255,255,.18); color:#fff; border:none; border-radius:8px; padding:6px 14px; cursor:pointer; font-size:13px; font-weight:500; transition:background .15s; }
+    .chat-select-toolbar button:hover { background:rgba(255,255,255,.32); }
+    .chat-msg-selected .chat-sel-bubble { outline:2px solid #25D366; outline-offset:2px; background:#d2f8d2 !important; }
+    .chat-forward-modal { position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:600; display:flex; align-items:center; justify-content:center; }
+    .chat-forward-box { background:#fff; border-radius:12px; width:340px; max-height:70vh; display:flex; flex-direction:column; box-shadow:0 8px 32px rgba(0,0,0,.2); overflow:hidden; }
+    .chat-forward-list { flex:1; overflow-y:auto; }
+    .chat-forward-item { display:flex; align-items:center; gap:10px; padding:10px 16px; cursor:pointer; transition:background .1s; }
+    .chat-forward-item:hover { background:#f3f4f6; }
     .chat-filter-btn { background:#fff; color:#54656f; border-color:#d1d5db; cursor:pointer; transition:all .15s; }
     .chat-filter-btn:hover { background:#f0f2f5; }
     .chat-filter-btn.active { background:#e7fce9; color:#008069; border-color:#25D366; }
@@ -301,6 +319,10 @@
               </button>
             </div>
           </div>
+          <div id="chat-load-status" class="px-4 py-1 text-xs text-gray-400 flex items-center gap-1.5 border-b border-gray-100 bg-gray-50 invisible">
+            <svg id="chat-load-spinner" class="w-3 h-3 animate-spin shrink-0" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+            <span id="chat-load-status-text"></span>
+          </div>
           <div id="chat-list" class="flex-1 overflow-y-auto">
             <div class="flex items-center justify-center h-full text-gray-400 text-sm">Loading chats...</div>
           </div>
@@ -351,6 +373,13 @@
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             </div>
+            <!-- Selection toolbar (shown in select mode) -->
+            <div id="chat-select-toolbar" class="chat-select-toolbar hidden shrink-0">
+              <button onclick="chatExitSelectMode()" title="Cancel">✕ Cancel</button>
+              <span id="chat-select-count" class="flex-1 text-sm font-medium">0 selected</span>
+              <button onclick="chatCopySelected()">📋 Copy</button>
+              <button onclick="chatForwardSelected()">↗ Forward</button>
+            </div>
             <!-- Input bar -->
             <div id="chat-input-bar" class="bg-white px-4 py-3 flex items-end gap-2 border-t border-gray-200 shrink-0">
               <button onclick="chatToggleEmoji()" class="p-2 hover:bg-gray-100 rounded-full shrink-0" title="Emoji">
@@ -364,7 +393,7 @@
               </button>
               <input type="file" id="chat-file-input" class="hidden" onchange="chatOnFileSelected(this)"/>
               <div class="flex-1 relative">
-                <textarea id="chat-input" rows="1" placeholder="Type a message" class="w-full bg-gray-100 border-0 rounded-2xl px-4 py-2.5 text-sm resize-none max-h-32 overflow-y-auto" oninput="chatAutoResize(this); chatOnTyping()" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();chatSend()}"></textarea>
+                <textarea id="chat-input" rows="1" placeholder="Type a message" class="w-full bg-gray-100 border-0 rounded-2xl px-4 py-2.5 text-sm resize-none max-h-32 overflow-y-auto" oninput="chatAutoResize(this); chatOnTyping()" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();chatSend()}" onpaste="chatOnPaste(event)"></textarea>
               </div>
               <button id="chat-send-btn" onclick="chatSend()" class="p-2.5 bg-[#25D366] hover:bg-[#1ebe5d] text-white rounded-full shrink-0" title="Send">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/></svg>
@@ -2000,6 +2029,7 @@
     div.id = `qitem-${qid}`;
     div.dataset.type = type;
     div.className = 'border border-gray-200 rounded-xl overflow-hidden';
+    div.draggable = true;
     div.innerHTML = queueItemHTML(type, qid, 'removeGroupQueueItem');
     container.appendChild(div);
     updateGroupQueueState();
@@ -2350,10 +2380,90 @@
 
     return `
       <div class="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-100 rounded-t-xl">
-        <span class="text-sm font-semibold text-gray-700">${Q_ICONS[type]} ${Q_LABELS[type]}</span>
+        <div class="flex items-center gap-2">
+          <span class="queue-drag-handle" title="Drag to reorder">⠿</span>
+          <span class="text-sm font-semibold text-gray-700">${Q_ICONS[type]} ${Q_LABELS[type]}</span>
+        </div>
         <button onclick="${removeFn}(${qid})" class="text-gray-400 hover:text-red-500 text-xl leading-none font-light" title="Remove">×</button>
       </div>
       <div class="p-4 space-y-3">${fields}</div>`;
+  }
+
+  // ── Queue drag-and-drop reordering ──────────────────────────────────
+  function initQueueDragDrop(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container || container._dragInitialized) return;
+    container._dragInitialized = true;
+
+    let dragging = null;
+    let placeholder = null;
+    let dragFromHandle = false; // track whether mousedown was on the handle
+
+    function getPlaceholder() {
+      if (!placeholder) {
+        placeholder = document.createElement('div');
+        placeholder.className = 'qitem-drop-placeholder';
+        placeholder.id = ''; // ensure no id so closest('[id^="qitem-"]') skips it
+      }
+      return placeholder;
+    }
+
+    // dragstart fires on the draggable div, so e.target is the div, NOT the child
+    // the user pressed. We use mousedown to capture the actual origin element.
+    container.addEventListener('mousedown', e => {
+      dragFromHandle = !!e.target.closest('.queue-drag-handle');
+    });
+
+    container.addEventListener('dragstart', e => {
+      if (!dragFromHandle) { e.preventDefault(); return; }
+      const item = e.target.closest('[id^="qitem-"]');
+      if (!item) { e.preventDefault(); return; }
+      dragging = item;
+      e.dataTransfer.effectAllowed = 'move';
+      // Defer so the browser captures the full element snapshot before dimming
+      requestAnimationFrame(() => item.classList.add('qitem-dragging'));
+    });
+
+    container.addEventListener('dragover', e => {
+      if (!dragging) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      // Find the nearest sibling queue item under the cursor (skip placeholder & dragging)
+      const item = e.target.closest('[id^="qitem-"]');
+      if (!item || item === dragging) return;
+      const ph = getPlaceholder();
+      const rect = item.getBoundingClientRect();
+      const insertBefore = e.clientY < rect.top + rect.height / 2;
+      const target = insertBefore ? item : item.nextSibling;
+      // Skip re-inserting if placeholder is already in the right spot
+      if (ph.nextSibling !== (insertBefore ? item : item.nextSibling) || ph.parentNode !== container) {
+        container.insertBefore(ph, target);
+      }
+    });
+
+    container.addEventListener('dragleave', e => {
+      // Only hide placeholder when pointer truly leaves the container (not just a child boundary)
+      if (!e.relatedTarget || !container.contains(e.relatedTarget)) {
+        placeholder?.remove();
+      }
+    });
+
+    container.addEventListener('drop', e => {
+      e.preventDefault();
+      if (dragging && placeholder?.parentNode === container) {
+        container.insertBefore(dragging, placeholder);
+      }
+      placeholder?.remove();
+      placeholder = null;
+    });
+
+    container.addEventListener('dragend', () => {
+      dragging?.classList.remove('qitem-dragging');
+      placeholder?.remove();
+      dragging = null;
+      placeholder = null;
+      dragFromHandle = false;
+    });
   }
 
   function addQueueItem(type) {
@@ -2363,6 +2473,7 @@
     div.id = `qitem-${qid}`;
     div.dataset.type = type;
     div.className = 'border border-gray-200 rounded-xl overflow-hidden';
+    div.draggable = true;
     div.innerHTML = queueItemHTML(type, qid);
     container.appendChild(div);
     updateQueueState();
@@ -2720,40 +2831,56 @@
     });
   }
   // ── SCHEDULER ─────────────────────────────────────────────────────────────
-  const DB_NAME = 'wa_manager', DB_VERSION = 3, STORE_NAME = 'scheduled_jobs';
+  const DB_NAME = 'wa_manager', DB_VERSION = 4, STORE_NAME = 'scheduled_jobs';
   let _db = null;
+
+  const REQUIRED_STORES = ['scheduled_jobs', 'chat_contacts', 'chat_conversations', 'chat_messages', 'send_history'];
+
+  function _buildStores(db) {
+    if (!db.objectStoreNames.contains(STORE_NAME)) {
+      db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+    }
+    if (!db.objectStoreNames.contains('chat_contacts')) {
+      db.createObjectStore('chat_contacts', { keyPath: 'id' });
+    }
+    if (!db.objectStoreNames.contains('chat_conversations')) {
+      const cs = db.createObjectStore('chat_conversations', { keyPath: 'id' });
+      cs.createIndex('lastMsgTimestamp', 'lastMsgTimestamp');
+    }
+    if (!db.objectStoreNames.contains('chat_messages')) {
+      const ms = db.createObjectStore('chat_messages', { keyPath: 'id' });
+      ms.createIndex('remoteJid', 'remoteJid');
+      ms.createIndex('timestamp', 'timestamp');
+      ms.createIndex('jid_ts', ['remoteJid', 'timestamp']);
+    }
+    if (!db.objectStoreNames.contains('send_history')) {
+      const sh = db.createObjectStore('send_history', { keyPath: 'id' });
+      sh.createIndex('sentAt', 'sentAt');
+    }
+  }
 
   function openDB() {
     if (_db) return Promise.resolve(_db);
     return new Promise((resolve, reject) => {
       const req = indexedDB.open(DB_NAME, DB_VERSION);
-      req.onupgradeneeded = e => {
+      req.onupgradeneeded = e => _buildStores(e.target.result);
+      req.onsuccess = e => {
         const db = e.target.result;
-        // v1 store
-        if (!db.objectStoreNames.contains(STORE_NAME)) {
-          db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+        // Self-heal: if any required store is missing (version was already at DB_VERSION
+        // but stores were never created), delete and recreate the DB from scratch.
+        const missingStores = REQUIRED_STORES.filter(s => !db.objectStoreNames.contains(s));
+        if (missingStores.length) {
+          console.warn('[DB] Missing stores detected:', missingStores, '— recreating DB');
+          db.close();
+          _db = null;
+          const delReq = indexedDB.deleteDatabase(DB_NAME);
+          delReq.onsuccess = () => openDB().then(resolve).catch(reject);
+          delReq.onerror = () => reject(new Error('Failed to delete stale DB'));
+          return;
         }
-        // v2 stores — chat feature
-        if (!db.objectStoreNames.contains('chat_contacts')) {
-          db.createObjectStore('chat_contacts', { keyPath: 'id' });
-        }
-        if (!db.objectStoreNames.contains('chat_conversations')) {
-          const cs = db.createObjectStore('chat_conversations', { keyPath: 'id' });
-          cs.createIndex('lastMsgTimestamp', 'lastMsgTimestamp');
-        }
-        if (!db.objectStoreNames.contains('chat_messages')) {
-          const ms = db.createObjectStore('chat_messages', { keyPath: 'id' });
-          ms.createIndex('remoteJid', 'remoteJid');
-          ms.createIndex('timestamp', 'timestamp');
-          ms.createIndex('jid_ts', ['remoteJid', 'timestamp']);
-        }
-        // v3 store — send history
-        if (!db.objectStoreNames.contains('send_history')) {
-          const sh = db.createObjectStore('send_history', { keyPath: 'id' });
-          sh.createIndex('sentAt', 'sentAt');
-        }
+        _db = db;
+        resolve(db);
       };
-      req.onsuccess = e => { _db = e.target.result; resolve(_db); };
       req.onerror = e => reject(e.target.error);
     });
   }
@@ -3340,6 +3467,17 @@
     renderScheduledJobs();
     renderSendHistory();
     startSchedulerPoller();
+    initQueueDragDrop('compose-queue');
+    initQueueDragDrop('group-queue');
+  });
+
+  // Resume polls immediately when user returns to this browser tab
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden || !chatState.initialized) return;
+    // Refresh conversation list immediately instead of waiting for next interval
+    chatFetchConversations().then(() => { chatRenderList(); chatUpdateUnreadBadge(); });
+    // Refresh messages for active conversation immediately
+    if (chatState.activeJid) chatPollMessages();
   });
 
   function addTextChip(raw) {
@@ -3799,12 +3937,24 @@
     typingTimer: null,
     initialized: false,
     _verifiedGroupNames: {},  // in-memory only; populated by chatFetchGroupSubjects
+    _failedPicUrls: new Set(), // URLs that returned 403/error — skip on future renders
+    selectMode: false,
+    selectedMsgs: new Set(),
   };
 
   // ── Avatar colors (deterministic by jid) ─────────────────────────────
   const AVATAR_COLORS = ['#25D366','#128C7E','#075E54','#34B7F1','#00A884','#5B61B9','#D4524A','#E67E22','#8E44AD','#2C3E50'];
   function chatAvatarColor(jid) { let h=0; for(let i=0;i<jid.length;i++) h=((h<<5)-h)+jid.charCodeAt(i); return AVATAR_COLORS[Math.abs(h)%AVATAR_COLORS.length]; }
   function chatInitials(name) { if(!name) return '?'; const p=name.trim().split(/\s+/); return p.length>=2 ? (p[0][0]+p[1][0]).toUpperCase() : name.slice(0,2).toUpperCase(); }
+  // Called by onerror on avatar <img> — blacklists the URL so no future render retries it
+  function chatClearFailedPic(url) {
+    if (!url) return;
+    chatState._failedPicUrls.add(url);
+    chatState.conversations.forEach(c => { if (c.profilePicUrl === url) c.profilePicUrl = ''; });
+    Object.values(chatState.contacts).forEach(c => { if (c.profilePicUrl === url) c.profilePicUrl = ''; });
+  }
+
+
   function chatExtractNumber(jid) { return jid ? jid.split('@')[0] : ''; }
   function chatIsGroup(jid) { return jid && jid.endsWith('@g.us'); }
 
@@ -3919,6 +4069,16 @@
       tx.oncomplete = res; tx.onerror = e => rej(e.target.error);
     });
   }
+  async function chatDbDeleteByIndex(store, indexName, key) {
+    const db = await openDB();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(store, 'readwrite');
+      const s = tx.objectStore(store);
+      const req = s.index(indexName).getAllKeys(key);
+      req.onsuccess = () => { req.result.forEach(k => s.delete(k)); };
+      tx.oncomplete = res; tx.onerror = e => rej(e.target.error);
+    });
+  }
 
   // ── API: Fetch contacts ──────────────────────────────────────────────
   async function chatFetchContacts() {
@@ -3937,8 +4097,8 @@
         phone: chatExtractNumber(c.remoteJid || c.id || c.wid || ''),
         isFavorite: c.isFavorite || c.starred || false,
       })).filter(c => c.id);
-      await chatDbPutMany('chat_contacts', contacts);
       contacts.forEach(c => { chatState.contacts[c.id] = c; });
+      chatDbPutMany('chat_contacts', contacts).catch(e => console.warn('[Chat] DB contacts write failed (non-fatal):', e.message));
       return contacts;
     } catch (e) { console.warn('chatFetchContacts error:', e); return []; }
   }
@@ -4064,6 +4224,8 @@
   }
 
   async function chatFetchConversations() {
+    if (chatState._fetchingConversations) { chatSetLoadStatus(''); return chatState.conversations; }
+    chatState._fetchingConversations = true;
     try {
       const cfg = getCfg();
       // Fetch normal chats first (fast path), then try archive strategies in background
@@ -4175,6 +4337,47 @@
         if (existing) existing.archived = true;
       });
 
+      // ── Merge groups from /group/fetchAllGroups ──
+      // findChats often does NOT return group chats — fetch them separately and add any missing ones.
+      // Guard: only run once per session — this is a heavy endpoint and groups rarely change.
+      if (!chatState._groupsFetched) {
+      chatState._groupsFetched = true;
+      try {
+        const groupData = await fetch(`${cfg.base}/group/fetchAllGroups/${cfg.instance}?getParticipants=false`, {
+          headers: { apikey: cfg.apikey }
+        }).then(r => r.ok ? r.json() : []).catch(() => []);
+        if (Array.isArray(groupData) && groupData.length) {
+          const existingIds = new Set(convs.map(c => c.id));
+          let addedCount = 0;
+          groupData.forEach(g => {
+            const jid = g.id || '';
+            if (!jid || !jid.endsWith('@g.us') || existingIds.has(jid)) return;
+            const subject = g.subject || chatExtractNumber(jid);
+            if (!chatState._verifiedGroupNames) chatState._verifiedGroupNames = {};
+            chatState._verifiedGroupNames[jid] = subject;
+            convs.push({
+              id: jid,
+              name: subject,
+              profilePicUrl: g.pictureUrl || g.profilePicUrl || '',
+              lastMessage: '',
+              lastMsgTimestamp: 0,
+              unreadCount: 0,
+              isGroup: true,
+              fromMe: false,
+              archived: archivedJids.includes(jid),
+              pinned: false,
+              isFavorite: false,
+              labels: [],
+              _lastMsgKey: null,
+            });
+            existingIds.add(jid);
+            addedCount++;
+          });
+          if (addedCount > 0) console.log(`[Chat] Added ${addedCount} groups from fetchAllGroups not in findChats`);
+        }
+      } catch (e) { console.warn('[Chat] fetchAllGroups fallback failed:', e); }
+      } // end _groupsFetched guard
+
       convs.sort((a, b) => {
         if (a.pinned && !b.pinned) return -1;
         if (!a.pinned && b.pinned) return 1;
@@ -4232,15 +4435,27 @@
       // and causes name flickering when the API call is slow.
       if (!chatState._groupSubjectsFetched) {
         chatState._groupSubjectsFetched = true;
+        const groupCount = convs.filter(c => chatIsGroup(c.id)).length;
+        if (groupCount) chatSetLoadStatus(`Updating ${groupCount} group names...`);
         await chatFetchGroupSubjects(convs);
       }
 
-      await chatDbPutMany('chat_conversations', convs);
+      // Preserve unreadCount=0 for any conversation the user currently has open
+      // (the API may lag behind our mark-as-read call, especially for groups)
+      if (chatState.activeJid) {
+        const fresh = convs.find(c => c.id === chatState.activeJid);
+        if (fresh) fresh.unreadCount = 0;
+      }
+      // Always assign to state first — UI must work even if DB write fails
       chatState.conversations = convs;
       const archivedCount = convs.filter(c => c.archived).length;
       console.log('[Chat] chatFetchConversations done: total=', convs.length, 'archived=', archivedCount, 'visible=', convs.length - archivedCount);
+      chatSetLoadStatus('');
+      // DB write is best-effort — never block the UI
+      chatDbPutMany('chat_conversations', convs).catch(e => console.warn('[Chat] DB write failed (non-fatal):', e.message));
       return convs;
-    } catch (e) { console.warn('chatFetchConversations error:', e); return []; }
+    } catch (e) { console.warn('chatFetchConversations error:', e); chatSetLoadStatus(''); return []; }
+    finally { chatState._fetchingConversations = false; }
   }
 
   // ── API: Fetch messages for a conversation ───────────────────────────
@@ -4327,7 +4542,7 @@
       // Client-side filter — keep only messages belonging to this conversation
       msgs = msgs.filter(m => aliasJids.has(m.key?.remoteJid || m.remoteJid || ''));
       const parsed = msgs.map(m => chatParseMessage(m, jid)).filter(Boolean);
-      if (parsed.length) await chatDbPutMany('chat_messages', parsed);
+      if (parsed.length) chatDbPutMany('chat_messages', parsed).catch(e => console.warn('[Chat] DB messages write failed (non-fatal):', e.message));
       chatUpdateContactNamesFromMessages(jid, parsed);
       return { msgs: parsed, totalPages };
     } catch (e) { console.warn('chatFetchMessages error:', e); return { msgs: [], totalPages: 1 }; }
@@ -4434,7 +4649,11 @@
       else if (msg.locationMessage) { type = 'location'; text = `📍 ${msg.locationMessage.degreesLatitude},${msg.locationMessage.degreesLongitude}`; }
       else if (msg.contactMessage) { type = 'contact'; text = `👤 ${msg.contactMessage.displayName || 'Contact'}`; }
       else if (msg.contactsArrayMessage) { type = 'contact'; text = `👥 ${(msg.contactsArrayMessage.contacts||[]).map(c=>c.displayName||'').filter(Boolean).join(', ') || 'Contacts'}`; }
-      else if (msg.reactionMessage) { return null; }
+      else if (msg.reactionMessage) {
+        type = 'reaction';
+        text = msg.reactionMessage.text || '';        // emoji; empty string = remove reaction
+        caption = msg.reactionMessage.key?.id || '';  // target message ID
+      }
       else if (msg.pollCreationMessage || msg.pollCreationMessageV3) {
         const poll = msg.pollCreationMessage || msg.pollCreationMessageV3;
         type = 'poll';
@@ -4585,8 +4804,9 @@
     const isActive = chatState.activeJid === c.id;
     const color = chatAvatarColor(c.id);
     const initials = chatInitials(c.name);
-    const avatar = c.profilePicUrl
-      ? `<img src="${c.profilePicUrl}" class="w-12 h-12 rounded-full object-cover" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/><div class="w-12 h-12 rounded-full items-center justify-center text-white font-bold text-sm shrink-0" style="display:none;background:${color}">${initials}</div>`
+    const safePicUrl = c.profilePicUrl && !chatState._failedPicUrls.has(c.profilePicUrl) ? c.profilePicUrl : '';
+    const avatar = safePicUrl
+      ? `<img src="${safePicUrl}" class="w-12 h-12 rounded-full object-cover" onerror="chatClearFailedPic('${safePicUrl}');this.style.display='none';this.nextElementSibling.style.display='flex'"/><div class="w-12 h-12 rounded-full items-center justify-center text-white font-bold text-sm shrink-0" style="display:none;background:${color}">${initials}</div>`
       : `<div class="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0" style="background:${color}">${initials}</div>`;
     const ticks = c.fromMe ? chatTicks(c.status || 'SERVER_ACK') + ' ' : '';
     const unread = c.unreadCount > 0 ? `<span class="bg-[#25D366] text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shrink-0">${c.unreadCount > 99 ? '99+' : c.unreadCount}</span>` : '';
@@ -4706,6 +4926,9 @@
     } catch (e) { /* may not be supported, just remove locally */ }
     chatState.conversations = chatState.conversations.filter(c => c.id !== jid);
     if (chatState.activeJid === jid) chatCloseConversation();
+    // Purge from IndexedDB so deleted chat doesn't reappear on next init from cache
+    chatDbDeleteByIndex('chat_messages', 'remoteJid', jid).catch(() => {});
+    chatDbPutMany('chat_conversations', chatState.conversations).catch(() => {});
     chatRenderList();
   }
 
@@ -4714,6 +4937,15 @@
   function chatFilterList(query) {
     chatState.searchQuery = query;
     chatRenderList();
+  }
+
+  // ── Loading status bar ───────────────────────────────────────────────
+  function chatSetLoadStatus(text) {
+    const bar = document.getElementById('chat-load-status');
+    const txt = document.getElementById('chat-load-status-text');
+    if (!bar || !txt) return;
+    if (text) { txt.textContent = text; bar.classList.remove('invisible'); }
+    else bar.classList.add('invisible');
   }
 
   // ── Update sidebar unread badge ──────────────────────────────────────
@@ -4727,7 +4959,12 @@
 
   // ── Init / Destroy ───────────────────────────────────────────────────
   async function chatInit() {
-    if (chatState.initialized) { chatStartPolling(); return; }
+    if (chatState.initialized) {
+      chatStartPolling();
+      // Immediately refresh conversations on tab re-entry instead of waiting up to 5s
+      chatFetchConversations().then(() => { chatRenderList(); chatUpdateUnreadBadge(); });
+      return;
+    }
     chatState.initialized = true;
     console.log('[Chat] chatInit starting...');
     // One-time cleanup v3: previous bug saved ALL jids as archived in both
@@ -4769,6 +5006,7 @@
     } catch (e) { console.warn('chatInit cache load error:', e); }
     // Fetch fresh data
     await chatFetchContacts();
+    chatSetLoadStatus('Loading chats...');
     await chatFetchConversations();
     chatRenderList();
     chatUpdateUnreadBadge();
@@ -4779,12 +5017,23 @@
     if (chatState.chatListPollTimer) { clearInterval(chatState.chatListPollTimer); chatState.chatListPollTimer = null; }
     if (chatState.pollTimer) { clearInterval(chatState.pollTimer); chatState.pollTimer = null; }
     if (chatState.typingTimer) { clearTimeout(chatState.typingTimer); chatState.typingTimer = null; }
+    // Release any in-flight locks so they don't block the next session
+    chatState._fetchingConversations = false;
+    chatState._pollingMessages = false;
+    chatSetLoadStatus('');
   }
 
   function chatStartPolling() {
     if (chatState.chatListPollTimer) clearInterval(chatState.chatListPollTimer);
     chatState.chatListPollTimer = setInterval(async () => {
+      if (document.hidden) return; // don't poll when browser tab is not visible
       await chatFetchConversations();
+      // If a conversation is currently open, keep its unread count at 0
+      // (the API may lag behind the mark-as-read we already sent)
+      if (chatState.activeJid) {
+        const activeConv = chatState.conversations.find(c => c.id === chatState.activeJid);
+        if (activeConv) activeConv.unreadCount = 0;
+      }
       chatRenderList();
       chatUpdateUnreadBadge();
     }, 5000);
@@ -4796,7 +5045,12 @@
     chatState.allFetchedMessages = [];
     chatState.historyFullyLoaded = false;
     chatState._loadingOlderFromApi = false;
+    chatState._pollingMessages = false; // release any in-flight poll from previous conversation
     chatState.apiCurrentPage = 1;
+    chatState.selectMode = false;
+    chatState.selectedMsgs = new Set();
+    document.getElementById('chat-select-toolbar')?.classList.add('hidden');
+    document.getElementById('chat-input-bar')?.classList.remove('hidden');
     chatState.apiTotalPages = 1;
     // Update UI
     document.getElementById('chat-empty-state').style.display = 'none';
@@ -4810,10 +5064,11 @@
     const avatarEl = document.getElementById('chat-header-avatar');
     const contact = chatState.contacts[jid];
     const conv = chatState.conversations.find(c => c.id === jid);
-    const picUrl = (contact && contact.profilePicUrl) || (conv && conv.profilePicUrl) || '';
+    const rawPicUrl = (contact && contact.profilePicUrl) || (conv && conv.profilePicUrl) || '';
+    const picUrl = rawPicUrl && !chatState._failedPicUrls.has(rawPicUrl) ? rawPicUrl : '';
     const color = chatAvatarColor(jid);
     if (picUrl) {
-      avatarEl.innerHTML = `<img src="${picUrl}" class="w-10 h-10 rounded-full object-cover" onerror="this.parentElement.innerHTML='${chatInitials(name)}';this.parentElement.style.background='${color}'"/>`;
+      avatarEl.innerHTML = `<img src="${picUrl}" class="w-10 h-10 rounded-full object-cover" onerror="chatClearFailedPic('${picUrl}');this.parentElement.innerHTML='${chatInitials(name)}';this.parentElement.style.background='${color}'"/>`;
     } else {
       avatarEl.textContent = chatInitials(name);
       avatarEl.style.background = color;
@@ -4922,6 +5177,12 @@
     const prevScrollHeight = msgEl ? msgEl.scrollHeight : 0;
     try {
       const { msgs: older, totalPages: tp } = await chatFetchMessages(jid, nextPage);
+      // Abort if user navigated to a different conversation while we were fetching
+      if (chatState.activeJid !== jid) {
+        document.getElementById('chat-older-loading')?.remove();
+        chatState._loadingOlderFromApi = false;
+        return;
+      }
       chatState.apiCurrentPage = nextPage;
       chatState.apiTotalPages = tp || totalPages;
       if (!older.length) {
@@ -4955,6 +5216,8 @@
     chatState.allFetchedMessages = [];
     chatState.historyFullyLoaded = false;
     chatState._loadingOlderFromApi = false;
+    chatState._pollingMessages = false;
+    chatState._sending = false;
     chatState.replyTo = null;
     if (chatState.pollTimer) { clearInterval(chatState.pollTimer); chatState.pollTimer = null; }
     const msgEl = document.getElementById('chat-messages');
@@ -4968,49 +5231,62 @@
   // ── Poll messages for active conversation ────────────────────────────
   async function chatPollMessages() {
     if (!chatState.activeJid) return;
+    if (document.hidden) return; // don't poll when browser tab is not visible
+    if (chatState._pollingMessages) return; // prevent concurrent polls
+    chatState._pollingMessages = true;
     const jid = chatState.activeJid;
-    const { msgs: fresh } = await chatFetchMessages(jid, 1);
-    if (!fresh.length) return;
-    const existingIds = new Set(chatState.messages.map(m => m.id));
-    const allIds = new Set(chatState.allFetchedMessages.map(m => m.id));
-    const newMsgs = fresh.filter(m => !existingIds.has(m.id));
-    const newForAll = fresh.filter(m => !allIds.has(m.id));
-    // Update status of existing messages
-    fresh.forEach(fm => {
-      const ex = chatState.messages.find(m => m.id === fm.id);
-      if (ex && ex.status !== fm.status) ex.status = fm.status;
-      const exAll = chatState.allFetchedMessages.find(m => m.id === fm.id);
-      if (exAll && exAll.status !== fm.status) exAll.status = fm.status;
-    });
-    // Append new messages to both arrays
-    if (newForAll.length) {
-      chatState.allFetchedMessages.push(...newForAll);
-      chatState.allFetchedMessages.sort((a, b) => a.timestamp - b.timestamp);
-    }
-    if (newMsgs.length) {
-      chatState.messages.push(...newMsgs);
-      chatState.messages.sort((a, b) => a.timestamp - b.timestamp);
-      chatRenderMessages();
-      chatScrollToBottom(true);
-      chatMarkRead(jid);
-    } else {
-      // Just re-render for status updates
-      chatRenderMessages();
+    try {
+      const { msgs: fresh } = await chatFetchMessages(jid, 1);
+      // Abort if user navigated away while we were fetching
+      if (chatState.activeJid !== jid) return;
+      if (!fresh.length) return;
+      const existingIds = new Set(chatState.messages.map(m => m.id));
+      const allIds = new Set(chatState.allFetchedMessages.map(m => m.id));
+      const newMsgs = fresh.filter(m => !existingIds.has(m.id));
+      const newForAll = fresh.filter(m => !allIds.has(m.id));
+      // Update status of existing messages
+      fresh.forEach(fm => {
+        const ex = chatState.messages.find(m => m.id === fm.id);
+        if (ex && ex.status !== fm.status) ex.status = fm.status;
+        const exAll = chatState.allFetchedMessages.find(m => m.id === fm.id);
+        if (exAll && exAll.status !== fm.status) exAll.status = fm.status;
+      });
+      // Append new messages to both arrays
+      if (newForAll.length) {
+        chatState.allFetchedMessages.push(...newForAll);
+        chatState.allFetchedMessages.sort((a, b) => a.timestamp - b.timestamp);
+      }
+      if (newMsgs.length) {
+        chatState.messages.push(...newMsgs);
+        chatState.messages.sort((a, b) => a.timestamp - b.timestamp);
+        chatRenderMessages();
+        chatScrollToBottom(true);
+        chatMarkRead(jid);
+      } else {
+        // Just re-render for status updates
+        chatRenderMessages();
+      }
+    } finally {
+      chatState._pollingMessages = false;
     }
   }
 
   // ── Mark messages as read ────────────────────────────────────────────
   async function chatMarkRead(jid) {
     try {
+      // Always clear local unread count immediately when viewing a chat
+      const conv = chatState.conversations.find(c => c.id === jid);
+      if (conv && conv.unreadCount > 0) { conv.unreadCount = 0; chatRenderList(); chatUpdateUnreadBadge(); }
+      // Only send API mark-as-read if this conversation is currently active and its
+      // messages are loaded — otherwise chatState.messages belongs to a different chat
+      if (chatState.activeJid !== jid) return;
       const cfg = getCfg();
-      const unreadMsgs = chatState.messages.filter(m => !m.fromMe && m.status !== 'READ');
+      // Include messages with no status field (common in groups) as potentially unread
+      const unreadMsgs = chatState.messages.filter(m => !m.fromMe && m.status !== 'READ' && m.status !== 'PLAYED');
       if (!unreadMsgs.length) return;
       await chatApiCall(`/chat/markMessageAsRead/${cfg.instance}`, {
-        readMessages: unreadMsgs.map(m => ({ remoteJid: jid, fromMe: false, id: m.id }))
+        readMessages: unreadMsgs.map(m => ({ remoteJid: m.remoteJid || jid, fromMe: false, id: m.id }))
       });
-      // Update local unread count
-      const conv = chatState.conversations.find(c => c.id === jid);
-      if (conv) { conv.unreadCount = 0; chatRenderList(); chatUpdateUnreadBadge(); }
     } catch (e) { console.warn('chatMarkRead error:', e); }
   }
 
@@ -5055,27 +5331,53 @@
       } catch(e) {}
     });
 
+    // Build reaction map: targetMsgId → { emoji → count }
+    // Track latest reaction per reactor so changes/removals work correctly
+    const reactionMap = {};
+    const reactorTracker = {}; // targetMsgId → { reactorKey → emoji }
+    chatState.allFetchedMessages.forEach(m => {
+      if (m.type !== 'reaction') return;
+      const targetId = m.caption;
+      if (!targetId) return;
+      const reactorKey = m.fromMe ? '__me__' : (m.senderJid || m.pushName || m.id);
+      if (!reactorTracker[targetId]) reactorTracker[targetId] = {};
+      const prevEmoji = reactorTracker[targetId][reactorKey];
+      // Remove previous reaction count for this reactor
+      if (prevEmoji && reactionMap[targetId]?.[prevEmoji]) {
+        reactionMap[targetId][prevEmoji] = Math.max(0, reactionMap[targetId][prevEmoji] - 1);
+        if (reactionMap[targetId][prevEmoji] === 0) delete reactionMap[targetId][prevEmoji];
+      }
+      if (m.text) { // non-empty = set reaction
+        if (!reactionMap[targetId]) reactionMap[targetId] = {};
+        reactionMap[targetId][m.text] = (reactionMap[targetId][m.text] || 0) + 1;
+        reactorTracker[targetId][reactorKey] = m.text;
+      } else { // empty = remove reaction
+        reactorTracker[targetId][reactorKey] = null;
+      }
+    });
+
     let html = '';
     if (!chatState.historyFullyLoaded) {
       html += '<div class="flex justify-center py-3"><span class="text-xs text-gray-400 bg-white/80 px-3 py-1 rounded-full">↑ Scroll up for older messages</span></div>';
     }
     let lastDateStr = '';
     chatState.messages.forEach(m => {
-      if (m.type === 'pollVote') return;  // votes are baked into poll bubbles, not rendered alone
+      if (m.type === 'pollVote' || m.type === 'reaction') return;  // baked into other bubbles
       const dateStr = chatFormatDateSep(m.timestamp);
       if (dateStr !== lastDateStr) {
         html += `<div class="flex justify-center my-3"><span class="chat-date-sep">${dateStr}</span></div>`;
         lastDateStr = dateStr;
       }
-      html += chatRenderBubble(m, pollVoteMap);
+      html += chatRenderBubble(m, pollVoteMap, reactionMap);
     });
     el.innerHTML = html;
   }
 
-  function chatRenderBubble(m, pollVoteMap) {
+  function chatRenderBubble(m, pollVoteMap, reactionMap) {
     const align = m.fromMe ? 'justify-end' : 'justify-start';
     const bubbleCls = m.fromMe ? 'chat-bubble-out' : 'chat-bubble-in';
     const maxW = 'max-w-[65%]';
+    const isSelected = chatState.selectedMsgs.has(m.id);
 
     // Quoted message
     let quotedHtml = '';
@@ -5210,10 +5512,35 @@
     const ticks = m.fromMe ? ' ' + chatTicks(m.status) : '';
     const timeHtml = `<div class="flex items-center justify-end gap-1 mt-0.5"><span class="text-[10px] text-gray-500">${time}</span>${ticks}</div>`;
 
-    return `<div class="flex ${align} mb-1 group" data-msg-id="${m.id}">
-      <div class="${maxW} ${bubbleCls} px-2.5 py-1.5 shadow-sm relative" oncontextmenu="chatContextMenu(event,'${m.id}')">
-        ${senderHtml}${quotedHtml}${contentHtml}${timeHtml}
+    // Reaction badges
+    const msgReactions = reactionMap && reactionMap[m.id];
+    let reactionsHtml = '';
+    if (msgReactions) {
+      const badges = Object.entries(msgReactions)
+        .filter(([, count]) => count > 0)
+        .map(([emoji, count]) =>
+          `<span class="chat-reaction-badge">${emoji}${count > 1 ? `<span class="chat-reaction-count">${count}</span>` : ''}</span>`
+        ).join('');
+      if (badges) reactionsHtml = `<div class="chat-reactions">${badges}</div>`;
+    }
+
+    // Select-mode checkbox
+    const cbHtml = chatState.selectMode
+      ? `<div class="flex items-center shrink-0 px-1"><input type="checkbox" class="w-4 h-4 accent-green-600 cursor-pointer" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation();chatToggleSelect('${m.id}')"></div>`
+      : '';
+    const selectedBg = isSelected ? ' chat-msg-selected' : '';
+    const ctxAttr = chatState.selectMode ? '' : `oncontextmenu="chatContextMenu(event,'${m.id}')"`;
+    const clickAttr = chatState.selectMode ? `onclick="chatToggleSelect('${m.id}')"` : '';
+
+    return `<div class="flex flex-col ${m.fromMe ? 'items-end' : 'items-start'} mb-1 group${selectedBg}" data-msg-id="${m.id}" ${clickAttr}>
+      <div class="flex items-end gap-1 ${align} w-full">
+        ${m.fromMe ? '' : cbHtml}
+        <div class="chat-sel-bubble ${maxW} ${bubbleCls} px-2.5 py-1.5 shadow-sm relative" ${ctxAttr}>
+          ${senderHtml}${quotedHtml}${contentHtml}${timeHtml}
+        </div>
+        ${m.fromMe ? cbHtml : ''}
       </div>
+      ${reactionsHtml}
     </div>`;
   }
 
@@ -5322,9 +5649,11 @@
 
   // ── Send text message ────────────────────────────────────────────────
   async function chatSend() {
+    if (chatState._sending) return; // prevent double-send on rapid Enter/click
     const input = document.getElementById('chat-input');
     const text = input.value.trim();
     if (!text || !chatState.activeJid) return;
+    chatState._sending = true;
     input.value = '';
     chatAutoResize(input);
 
@@ -5367,6 +5696,8 @@
     } catch (e) {
       localMsg.status = 'error';
       console.warn('chatSend error:', e);
+    } finally {
+      chatState._sending = false;
     }
     chatRenderMessages();
     chatScrollToBottom(false);
@@ -5419,6 +5750,8 @@
   // ── Send media ───────────────────────────────────────────────────────
   async function chatSendMediaMsg(file) {
     if (!file || !chatState.activeJid) return;
+    if (chatState._sending) return; // prevent double-send
+    chatState._sending = true;
     const jid = chatState.activeJid;
     const number = chatResolveApiNumber(jid);
     const isImage = file.type.startsWith('image/');
@@ -5430,6 +5763,9 @@
       reader.onload = () => res(reader.result);
       reader.readAsDataURL(file);
     });
+
+    // Abort if user navigated away while the file was being read
+    if (chatState.activeJid !== jid) { chatState._sending = false; return; }
 
     const now = Date.now();
     const localMsg = {
@@ -5465,8 +5801,11 @@
     } catch (e) {
       localMsg.status = 'error';
       console.warn('chatSendMedia error:', e);
+    } finally {
+      chatState._sending = false;
     }
     chatRenderMessages();
+    chatScrollToBottom(false);
   }
 
   // ── Reply ────────────────────────────────────────────────────────────
@@ -5496,21 +5835,55 @@
     document.querySelectorAll('.chat-react-picker').forEach(e => e.remove());
     const bubble = document.querySelector(`[data-msg-id="${msgId}"]`);
     if (!bubble) return;
+    const rect = bubble.getBoundingClientRect();
     const picker = document.createElement('div');
     picker.className = 'chat-react-picker';
-    picker.style.top = '-40px'; picker.style.right = '0';
+    // Position fixed above the bubble, aligned to its right edge
+    picker.style.position = 'fixed';
+    picker.style.zIndex = '500';
+    const pickerHeight = 44;
+    const top = rect.top - pickerHeight - 6;
+    picker.style.top = Math.max(4, top) + 'px';
+    // After paint we can get its width; default right-align to bubble's right
+    picker.style.left = Math.min(rect.right - 220, window.innerWidth - 224) + 'px';
     picker.innerHTML = QUICK_REACTIONS.map(e => `<button onclick="chatSendReaction('${msgId}','${e}')">${e}</button>`).join('');
-    bubble.querySelector('.relative, div').appendChild(picker);
-    setTimeout(() => picker.remove(), 5000);
+    document.body.appendChild(picker);
+    // Dismiss when clicking outside
+    const closePicker = (ev) => {
+      if (!picker.contains(ev.target)) {
+        picker.remove();
+        document.removeEventListener('click', closePicker, true);
+      }
+    };
+    setTimeout(() => document.addEventListener('click', closePicker, true), 10);
   }
 
   async function chatSendReaction(msgId, emoji) {
     document.querySelectorAll('.chat-react-picker').forEach(e => e.remove());
     if (!chatState.activeJid) return;
+
+    // Optimistic update: remove any previous 'me' reaction on this msg, add new one
+    chatState.allFetchedMessages = chatState.allFetchedMessages.filter(
+      m => !(m.type === 'reaction' && m.caption === msgId && m.fromMe)
+    );
+    if (emoji) {
+      chatState.allFetchedMessages.push({
+        id: '_react_' + Date.now(), remoteJid: chatState.activeJid,
+        fromMe: true, timestamp: Date.now(),
+        type: 'reaction', text: emoji, caption: msgId,
+        mediaUrl: '', mimetype: '', fileName: '', thumbBase64: '',
+        quotedMsg: null, status: 'pending', pushName: '', senderJid: '',
+      });
+    }
+    chatRenderMessages();
+
     try {
       const cfg = getCfg();
+      const reactJid = chatState.activeJid;
+      if (!reactJid) return; // user navigated away before API call
+      const targetMsg = chatState.messages.find(m => m.id === msgId);
       await chatApiCall(`/message/sendReaction/${cfg.instance}`, {
-        key: { remoteJid: chatState.activeJid, fromMe: chatState.messages.find(m=>m.id===msgId)?.fromMe || false, id: msgId },
+        key: { remoteJid: reactJid, fromMe: targetMsg?.fromMe || false, id: msgId },
         reaction: emoji,
       });
     } catch (e) { console.warn('chatSendReaction error:', e); }
@@ -5528,7 +5901,8 @@
     menu.style.top = event.clientY + 'px';
     let items = `<button onclick="chatReplyTo('${msgId}');this.parentElement.remove()">↩ Reply</button>`;
     items += `<button onclick="chatReactTo('${msgId}');this.parentElement.remove()">😀 React</button>`;
-    if (msg.type === 'text' && msg.text) items += `<button onclick="navigator.clipboard.writeText(${JSON.stringify(msg.text)});this.parentElement.remove()">📋 Copy</button>`;
+    items += `<button onclick="chatEnterSelectMode('${msgId}');this.parentElement.remove()">☑ Select</button>`;
+    if (msg.type === 'text' && msg.text) items += `<button onclick="chatCopyWithMeta('${msgId}');this.parentElement.remove()">📋 Copy</button>`;
     if (msg.fromMe) items += `<button onclick="chatDeleteMsg('${msgId}');this.parentElement.remove()">🗑 Delete</button>`;
     menu.innerHTML = items;
     document.body.appendChild(menu);
@@ -5536,16 +5910,120 @@
     setTimeout(() => document.addEventListener('click', close), 10);
   }
 
+  // ── Multi-select ─────────────────────────────────────────────────────
+  function chatEnterSelectMode(firstMsgId) {
+    chatState.selectMode = true;
+    chatState.selectedMsgs = new Set(firstMsgId ? [firstMsgId] : []);
+    document.getElementById('chat-select-toolbar')?.classList.remove('hidden');
+    document.getElementById('chat-input-bar')?.classList.add('hidden');
+    chatRenderMessages();
+    chatUpdateSelectCount();
+  }
+
+  function chatExitSelectMode() {
+    chatState.selectMode = false;
+    chatState.selectedMsgs = new Set();
+    document.getElementById('chat-select-toolbar')?.classList.add('hidden');
+    document.getElementById('chat-input-bar')?.classList.remove('hidden');
+    chatRenderMessages();
+  }
+
+  function chatToggleSelect(msgId) {
+    if (!chatState.selectMode) return;
+    if (chatState.selectedMsgs.has(msgId)) chatState.selectedMsgs.delete(msgId);
+    else chatState.selectedMsgs.add(msgId);
+    chatUpdateSelectCount();
+    chatRenderMessages();
+  }
+
+  function chatUpdateSelectCount() {
+    const el = document.getElementById('chat-select-count');
+    if (el) el.textContent = `${chatState.selectedMsgs.size} selected`;
+  }
+
+  function chatCopyWithMeta(msgId) {
+    const msg = chatState.messages.find(m => m.id === msgId);
+    if (!msg) return;
+    const senderName = msg.fromMe ? 'Me' : (msg.pushName || chatResolveName(msg.senderJid || msg.remoteJid));
+    const time = new Date(msg.timestamp).toLocaleString();
+    const text = `[${senderName}, ${time}]:\n${msg.text || msg.caption || ''}`;
+    navigator.clipboard.writeText(text).catch(() => {});
+  }
+
+  function chatCopySelected() {
+    const selectedIds = [...chatState.selectedMsgs];
+    const msgs = chatState.messages
+      .filter(m => selectedIds.includes(m.id))
+      .sort((a, b) => a.timestamp - b.timestamp);
+    if (!msgs.length) return;
+    const text = msgs.map(m => {
+      const senderName = m.fromMe ? 'Me' : (m.pushName || chatResolveName(m.senderJid || m.remoteJid));
+      const time = new Date(m.timestamp).toLocaleString();
+      return `[${senderName}, ${time}]:\n${m.text || m.caption || ''}`;
+    }).join('\n\n');
+    navigator.clipboard.writeText(text).catch(() => {});
+    chatExitSelectMode();
+  }
+
+  function chatForwardSelected() {
+    const selectedIds = [...chatState.selectedMsgs];
+    const msgs = chatState.messages
+      .filter(m => selectedIds.includes(m.id))
+      .sort((a, b) => a.timestamp - b.timestamp);
+    if (!msgs.length) return;
+    // Build forward text (with metadata)
+    const forwardText = msgs.map(m => {
+      const senderName = m.fromMe ? 'Me' : (m.pushName || chatResolveName(m.senderJid || m.remoteJid));
+      const time = new Date(m.timestamp).toLocaleString();
+      return `[${senderName}, ${time}]:\n${m.text || m.caption || ''}`;
+    }).join('\n\n');
+    chatShowForwardModal(forwardText);
+  }
+
+  function chatShowForwardModal(text) {
+    document.querySelectorAll('.chat-forward-modal').forEach(e => e.remove());
+    const modal = document.createElement('div');
+    modal.className = 'chat-forward-modal';
+    const convItems = chatState.conversations.slice(0, 50).map(c => {
+      const name = chatResolveName(c.jid || c.id || '') || c.id || '';
+      const initials = chatInitials(name);
+      const color = chatAvatarColor(c.jid || c.id || '');
+      return `<div class="chat-forward-item" onclick="chatDoForward(${JSON.stringify(c.jid || c.id || '')},${JSON.stringify(text)});document.querySelector('.chat-forward-modal').remove();chatExitSelectMode()">
+        <div style="width:36px;height:36px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;shrink:0">${chatEsc(initials)}</div>
+        <span class="text-sm text-gray-800 truncate">${chatEsc(name)}</span>
+      </div>`;
+    }).join('');
+    modal.innerHTML = `<div class="chat-forward-box">
+      <div style="padding:14px 16px;border-bottom:1px solid #e5e7eb;font-weight:600;font-size:15px;display:flex;align-items:center;justify-content:space-between">
+        Forward to…
+        <button onclick="this.closest('.chat-forward-modal').remove()" style="background:none;border:none;cursor:pointer;font-size:18px;color:#6b7280">✕</button>
+      </div>
+      <div class="chat-forward-list">${convItems}</div>
+    </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  }
+
+  async function chatDoForward(toJid, text) {
+    try {
+      const cfg = getCfg();
+      const number = chatIsGroup(toJid) ? toJid : chatExtractNumber(toJid);
+      await chatApiCall(`/message/sendText/${cfg.instance}`, { number, text });
+    } catch (e) { console.warn('chatDoForward error:', e); }
+  }
+
   // ── Delete message ───────────────────────────────────────────────────
   async function chatDeleteMsg(msgId) {
+    if (!chatState.activeJid) return;
     if (!confirm('Delete this message for everyone?')) return;
+    const deleteJid = chatState.activeJid; // capture before any await
     try {
       const cfg = getCfg();
       const msg = chatState.messages.find(m => m.id === msgId);
       if (!msg) return;
       await chatApiCall(`/chat/deleteMessageForEveryone/${cfg.instance}`, {
         id: msgId,
-        remoteJid: chatState.activeJid,
+        remoteJid: deleteJid,
         fromMe: msg.fromMe,
       }, 'DELETE');
       chatState.messages = chatState.messages.filter(m => m.id !== msgId);
@@ -5562,6 +6040,7 @@
   }
 
   async function chatSetPresence(state) {
+    if (!chatState.activeJid) return; // typing timer may fire after navigation
     try {
       const cfg = getCfg();
       await chatApiCall(`/chat/updatePresence/${cfg.instance}`, {
@@ -5585,6 +6064,19 @@
     if (input.files && input.files[0]) {
       chatSendMediaMsg(input.files[0]);
       input.value = '';
+    }
+  }
+  function chatOnPaste(event) {
+    if (!chatState.activeJid) return;
+    const items = event.clipboardData && event.clipboardData.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.kind === 'file' && item.type.startsWith('image/')) {
+        event.preventDefault();
+        const file = item.getAsFile();
+        if (file) chatSendMediaMsg(file);
+        return;
+      }
     }
   }
 
