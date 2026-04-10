@@ -2,6 +2,8 @@
 
 A browser-based WhatsApp management interface built on top of [Evolution API v2](https://github.com/EvolutionAPI/evolution-api). No installation, no Node.js, no build step — just open `index.html`.
 
+**Current version: [v1.1.0](CHANGELOG.md)**
+
 ---
 
 ## Prerequisites
@@ -27,6 +29,24 @@ A browser-based WhatsApp management interface built on top of [Evolution API v2]
 ---
 
 ## Features
+
+### Chat Inbox
+A full WhatsApp-style chat inbox — browse all conversations, send and receive messages in real time.
+
+| Feature | Description |
+|---------|-------------|
+| Conversation list | All chats with avatar, name, last message preview, unread badge, and timestamp |
+| Real-time polling | New messages appear automatically (3 s message poll, 30 s conversation poll) |
+| Message bubbles | Text, image, video, audio, document, sticker, location, contact, poll, reactions |
+| Read receipts | Double blue ticks (✓✓) show when a message has been read; single grey ticks for sent/delivered |
+| RTL support | Hebrew, Arabic, and other RTL text renders correctly; English stays LTR — per message, automatically |
+| Reply | Quote any message in your reply |
+| React | Send emoji reactions to any message |
+| Delete message | Remove messages with WhatsApp-style confirmation — **Delete for everyone** (your sent messages, within ~60 h) or **Delete for me** (any message, local only) |
+| Select mode | Long-press / right-click any message to enter multi-select — copy, forward, or delete a batch |
+| Drag-to-reorder | Reorder queued messages by dragging |
+| Scroll pagination | Scroll up to load older message history |
+| Persistent unread badges | Unread counts persist across page refreshes |
 
 ### Messaging
 | Type | Description |
@@ -56,14 +76,13 @@ Schedule any Compose or Group Broadcast job to send automatically at a future ti
 | Action | Description |
 |--------|-------------|
 | **Schedule** | Pick a future date/time — job queued and sent automatically |
-| **Cancel & Edit** | Cancels the pending job and loads it back into the tab for full editing (recipients, messages, time) |
-| **Duplicate** | Loads job content into the tab as a new draft — original untouched, schedule cleared for a fresh time |
-| **Resend** | Clone a completed or cancelled job with a new send time (no editing) |
+| **Cancel & Edit** | Cancels the pending job and loads it back into the tab for full editing |
+| **Duplicate** | Loads job content into the tab as a new draft — original untouched |
+| **Resend** | Clone a completed or cancelled job with a new send time |
 | **Restore** | Re-activate a cancelled job (only if scheduled time hasn't passed) |
 | **Cancel** | Cancel a pending job without editing |
 
 - Jobs are stored in **IndexedDB** (survives page refresh, handles large payloads)
-- Each card shows an inline message preview (icon + truncated content) collapsed by default
 - Scheduler polls every 30 seconds; jobs execute in order with the configured random delay between messages
 
 ### Phone Number Handling
@@ -102,6 +121,12 @@ Any field can be omitted — omitted fields fall back to the user's local browse
 - Credentials are stored in your **browser's localStorage** (local use) or in `config.json` on your server (hosted use)
 - Nothing is hardcoded in the source — the repo contains zero credentials
 - Credentials never leave your browser except in direct API calls to your own Evolution API server
+
+---
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
 ---
 
