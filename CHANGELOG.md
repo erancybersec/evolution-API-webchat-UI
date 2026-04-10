@@ -4,6 +4,18 @@ All notable changes to this project are documented here.
 
 ---
 
+## [1.2.0] — 2026-04-10
+
+### Improvements
+
+#### Scheduler — Background Tab Support
+- Scheduled messages now fire reliably even when the tab is in the background (not the active/focused tab)
+- Replaced the main-thread `setInterval` poller with a **Web Worker**-based tick; browsers throttle main-thread timers in hidden tabs but do not throttle Worker timers
+- Falls back to plain `setInterval` in environments that do not support Web Workers
+- Updated all UI copy from "The browser tab must remain open" to clarify the tab only needs to be open — it does not need to be the active tab
+
+---
+
 ## [1.1.0] — 2026-04-10
 
 ### New Features

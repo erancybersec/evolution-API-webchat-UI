@@ -539,7 +539,7 @@
               <input id="compose-schedule-dt" type="datetime-local" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
               <button onclick="scheduleCompose()" class="btn-send text-white font-semibold px-4 py-2 rounded-lg text-sm whitespace-nowrap">Confirm</button>
             </div>
-            <p class="text-xs text-gray-400">The browser tab must remain open at send time.</p>
+            <p class="text-xs text-gray-400">The browser tab must remain open at send time (it doesn't need to be the active tab).</p>
           </div>
         </div>
       </div>
@@ -1025,7 +1025,7 @@
                     <input id="groups-schedule-dt" type="datetime-local" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
                     <button onclick="scheduleGroupBroadcast()" class="btn-send text-white font-semibold px-4 py-2 rounded-lg text-sm whitespace-nowrap">Confirm</button>
                   </div>
-                  <p class="text-xs text-gray-400">The browser tab must remain open at send time.</p>
+                  <p class="text-xs text-gray-400">The browser tab must remain open at send time (it doesn't need to be the active tab).</p>
                 </div>
               </div>
             </div>
@@ -1222,7 +1222,7 @@
           <h2 class="text-lg font-semibold text-gray-800">Scheduled Jobs</h2>
           <button onclick="clearDoneJobs()" class="text-xs text-gray-400 hover:text-red-500 transition-colors">Clear completed</button>
         </div>
-        <p class="text-sm text-gray-500 mb-5">Messages queued for future delivery. The browser tab must remain open at send time.</p>
+        <p class="text-sm text-gray-500 mb-5">Messages queued for future delivery. The browser tab must remain open at send time (it doesn't need to be the active tab).</p>
         <div id="scheduled-jobs-list" class="space-y-3">
           <p class="text-sm text-gray-400 text-center py-12">No scheduled jobs yet.</p>
         </div>
@@ -3104,7 +3104,19 @@
       }
     }
     check();
-    setInterval(check, 30000);
+    // Use a Web Worker for the tick so the timer fires reliably even when
+    // the tab is in the background (browsers throttle main-thread setInterval
+    // in hidden tabs, but Worker timers are not throttled the same way).
+    try {
+      const workerBlob = new Blob([
+        'setInterval(function(){ postMessage("tick"); }, 30000);'
+      ], { type: 'application/javascript' });
+      const worker = new Worker(URL.createObjectURL(workerBlob));
+      worker.onmessage = () => check();
+    } catch (_) {
+      // Worker not supported — fall back to plain setInterval
+      setInterval(check, 30000);
+    }
   }
 
   async function scheduleCompose() {
@@ -3128,7 +3140,7 @@
     await saveJob(job);
     document.getElementById('compose-schedule-panel').classList.add('hidden');
     renderScheduledJobs();
-    alert(`Scheduled! Will send at ${new Date(dt).toLocaleString()}. Keep this tab open.`);
+    alert(`Scheduled! Will send at ${new Date(dt).toLocaleString()}. Keep this tab open (it doesn't need to be the active tab).`);
   }
 
   async function scheduleGroupBroadcast() {
@@ -3151,7 +3163,7 @@
     await saveJob(job);
     document.getElementById('groups-schedule-panel').classList.add('hidden');
     renderScheduledJobs();
-    alert(`Scheduled! Will send at ${new Date(dt).toLocaleString()}. Keep this tab open.`);
+    alert(`Scheduled! Will send at ${new Date(dt).toLocaleString()}. Keep this tab open (it doesn't need to be the active tab).`);
   }
 
   async function cancelJob(id) {
@@ -5898,7 +5910,7 @@
     chatAutoResize(input);
     document.getElementById('chat-schedule-panel').classList.add('hidden');
     const name = chatResolveName(jid);
-    alert(`Message scheduled for ${new Date(dt).toLocaleString()} to ${name}. Keep this tab open.`);
+    alert(`Message scheduled for ${new Date(dt).toLocaleString()} to ${name}. Keep this tab open (it doesn't need to be the active tab).`);
   }
 
   // ── Send media ───────────────────────────────────────────────────────
