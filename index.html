@@ -80,8 +80,20 @@
     .chat-reactions { display:flex; gap:4px; flex-wrap:wrap; margin-top:3px; }
     .chat-select-toolbar { background:#075e54; color:#fff; display:flex; align-items:center; gap:10px; padding:10px 16px; shrink-0; }
     .chat-select-toolbar button { background:rgba(255,255,255,.18); color:#fff; border:none; border-radius:8px; padding:6px 14px; cursor:pointer; font-size:13px; font-weight:500; transition:background .15s; }
-    .chat-select-toolbar button:hover { background:rgba(255,255,255,.32); }
+    .chat-select-toolbar button:hover:not(:disabled) { background:rgba(255,255,255,.32); }
+    .chat-select-toolbar button:disabled { opacity:0.35; cursor:not-allowed; }
     .chat-msg-selected .chat-sel-bubble { outline:2px solid #25D366; outline-offset:2px; background:#d2f8d2 !important; }
+    .chat-delete-modal { position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:700; display:flex; align-items:center; justify-content:center; }
+    .chat-delete-box { background:#fff; border-radius:16px; padding:28px 24px 20px; min-width:280px; max-width:340px; width:90%; box-shadow:0 8px 32px rgba(0,0,0,.22); }
+    .chat-delete-title { font-size:17px; font-weight:500; color:#111827; margin:0 0 28px; }
+    .chat-delete-actions { display:flex; flex-direction:column; gap:10px; align-items:flex-end; }
+    .chat-delete-btn { background:none; border:1.5px solid #00a884; color:#00a884; border-radius:24px; padding:10px 24px; font-size:15px; font-weight:500; cursor:pointer; min-width:190px; text-align:center; transition:background .15s, border-color .15s, color .15s; }
+    .chat-delete-btn:hover:not(:disabled) { background:#e6f7f4; }
+    .chat-delete-btn:disabled { border-color:#d1d5db; color:#9ca3af; cursor:not-allowed; }
+    .chat-delete-btn.cancel { border-color:#d1d5db; color:#374151; min-width:120px; }
+    .chat-delete-btn.cancel:hover { background:#f3f4f6; }
+    .chat-toast { position:fixed; bottom:84px; left:50%; transform:translateX(-50%); background:#323232; color:#fff; padding:10px 22px; border-radius:8px; font-size:13px; z-index:1100; pointer-events:none; white-space:nowrap; box-shadow:0 2px 10px rgba(0,0,0,.2); }
+    .chat-toast-error { background:#ef4444; }
     .chat-forward-modal { position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:600; display:flex; align-items:center; justify-content:center; }
     .chat-forward-box { background:#fff; border-radius:12px; width:340px; max-height:70vh; display:flex; flex-direction:column; box-shadow:0 8px 32px rgba(0,0,0,.2); overflow:hidden; }
     .chat-forward-list { flex:1; overflow-y:auto; }
@@ -92,6 +104,11 @@
     .chat-filter-btn.active { background:#e7fce9; color:#008069; border-color:#25D366; }
     .chat-archived-bar { display:flex; align-items:center; gap:8px; padding:12px 16px; cursor:pointer; color:#008069; font-size:13px; font-weight:500; border-bottom:1px solid #f1f1f1; }
     .chat-archived-bar:hover { background:#f5f6f6; }
+    .chat-ticks { cursor: pointer; display: inline-flex; align-items: center; vertical-align: middle; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+    .chat-ticks svg { transition: color 0.35s ease; }
+    .chat-ticks-static { display: inline-flex; align-items: center; vertical-align: middle; }
+    .chat-ticks-static svg { transition: color 0.35s ease; }
+    .chat-msg-info-popup { position:fixed; z-index:999; background:#fff; border-radius:10px; box-shadow:0 4px 24px rgba(0,0,0,.18); padding:12px 16px; min-width:200px; font-size:12px; color:#374151; }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -379,6 +396,10 @@
               <span id="chat-select-count" class="flex-1 text-sm font-medium">0 selected</span>
               <button onclick="chatCopySelected()">📋 Copy</button>
               <button onclick="chatForwardSelected()">↗ Forward</button>
+              <button id="chat-delete-selected-btn" onclick="chatDeleteSelected()" title="Delete" disabled>
+                <svg xmlns="http://www.w3.org/2000/svg" class="inline w-4 h-4 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                Delete
+              </button>
             </div>
             <!-- Input bar -->
             <div id="chat-input-bar" class="bg-white px-4 py-3 flex items-end gap-2 border-t border-gray-200 shrink-0">
@@ -1699,7 +1720,7 @@
         <input type="checkbox" class="bulk-cb w-4 h-4 accent-green-500 shrink-0" value="${jid}" ${checked} onchange="bulkToggle(this)"/>
         <div class="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold text-xs shrink-0">${initials}</div>
         <div class="min-w-0">
-          <p class="text-xs font-medium text-gray-800 truncate">${name}</p>
+          <p dir="auto" class="text-xs font-medium text-gray-800 truncate">${chatEsc(name)}</p>
           <p class="text-xs text-gray-400">${(g.participants || []).length || g.size || 0} members</p>
         </div>
       </label>`;
@@ -1966,8 +1987,8 @@
         <input type="checkbox" class="w-4 h-4 accent-green-500 shrink-0" ${isSelected ? 'checked' : ''} onchange="toggleGroup('${g.id}', \`${(g.subject||'').replace(/`/g,'')}\`, this.checked)"/>
         <div class="w-8 h-8 rounded-full ${color} flex items-center justify-center font-bold text-xs shrink-0">${initials}</div>
         <div class="flex-1 min-w-0">
-          <p class="text-sm font-medium text-gray-800 truncate">${g.subject || 'Unnamed'}</p>
-          <p class="text-xs text-gray-400">${g.size ? g.size + ' members' : ''} ${g.desc ? '· ' + g.desc.slice(0,30) : ''}</p>
+          <p dir="auto" class="text-sm font-medium text-gray-800 truncate">${chatEsc(g.subject || 'Unnamed')}</p>
+          <p class="text-xs text-gray-400">${g.size ? g.size + ' members' : ''} ${g.desc ? '· ' + chatEsc(g.desc.slice(0, 30)) : ''}</p>
         </div>
         <button onclick="event.stopPropagation();setManageGroup('${g.id}')" title="Manage" class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-green-600 transition-all p-1">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3" stroke-width="2"/></svg>
@@ -2181,7 +2202,7 @@
     const cfg = getCfg();
     const url = `${cfg.base}${endpoint}`;
     const opts = { method, headers: { 'Content-Type': 'application/json', 'apikey': cfg.apikey } };
-    if (body !== null && method !== 'GET' && method !== 'DELETE') opts.body = JSON.stringify(body);
+    if (body !== null && method !== 'GET') opts.body = JSON.stringify(body);
     const res = await fetch(url, opts);
     const data = await res.json().catch(() => null);
     if (!res.ok) {
@@ -3580,7 +3601,7 @@
   function readFileAsBase64(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = e => resolve(e.target.result.split(',')[1]);
+      reader.onload = e => { const parts = (e.target.result || '').split(','); resolve(parts.length > 1 ? parts[1] : parts[0] || ''); };
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
@@ -3929,6 +3950,7 @@
     contacts: {},
     activeJid: null,
     messages: [],
+    allFetchedMessages: [],
     replyTo: null,
     pollTimer: null,
     chatListPollTimer: null,
@@ -3992,13 +4014,26 @@
 
   // ── Time formatting ──────────────────────────────────────────────────
   function chatFormatTime(ts) {
-    if (!ts) return '';
-    const d = new Date(typeof ts === 'number' && ts < 1e12 ? ts * 1000 : ts);
+    const t = Number(ts);
+    if (!(t > 0)) return '';
+    const d = new Date(t < 1e12 ? t * 1000 : t);
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
+  function chatFormatDateTime(ts) {
+    const t = Number(ts);
+    if (!(t > 0)) return '';
+    const d = new Date(t < 1e12 ? t * 1000 : t);
+    const now = new Date();
+    const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (d.toDateString() === now.toDateString()) return `Today at ${time}`;
+    if (d.toDateString() === yesterday.toDateString()) return `Yesterday at ${time}`;
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' at ' + time;
+  }
   function chatFormatListDate(ts) {
-    if (!ts) return '';
-    const d = new Date(typeof ts === 'number' && ts < 1e12 ? ts * 1000 : ts);
+    const t = Number(ts);
+    if (!(t > 0)) return '';
+    const d = new Date(t < 1e12 ? t * 1000 : t);
     const now = new Date();
     const diff = Math.floor((now - d) / 86400000);
     if (diff === 0 && d.getDate() === now.getDate()) return chatFormatTime(ts);
@@ -4016,12 +4051,86 @@
     return d.toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' });
   }
 
+  // ── Status priority map (module-level constant — not recreated per message parse) ──
+  const CHAT_STATUS_PRIORITY = { 'PLAYED':5,'played':5,'READ':4,'read':4,'DELIVERY_ACK':3,'delivered':3,'SERVER_ACK':2,'sent':2,'error':1 };
+
+  // ── Normalize status (handles numeric ACK values from Evolution API) ──
+  function chatNormalizeStatus(s) {
+    if (s == null || s === '') return '';
+    if (typeof s === 'number' && isNaN(s)) return '';              // NaN is typeof 'number' — guard it explicitly
+    if (typeof s !== 'string' && typeof s !== 'number') return ''; // reject objects, arrays, booleans
+    const n = Number(s);
+    if (!isNaN(n) && s !== '') {
+      if (n < 0)  return 'error';      // ACK -1 = failed/revoked
+      if (n === 0) return '';           // ACK 0  = pending (not yet sent)
+      if (n === 1) return 'SERVER_ACK';
+      if (n === 2) return 'DELIVERY_ACK';
+      if (n === 3) return 'READ';
+      if (n === 4) return 'PLAYED';
+      return '';                        // unrecognised numeric ACK — show no tick
+    }
+    return String(s);
+  }
+
   // ── Tick marks SVG ───────────────────────────────────────────────────
-  function chatTicks(status) {
-    if (status === 'READ' || status === 'read' || status === 'PLAYED') return '<svg class="w-4 h-3 inline text-blue-500" viewBox="0 0 16 11"><path fill="currentColor" d="M11.07.66L5.64 6.08 3.49 3.93 2.07 5.34l3.57 3.57 6.85-6.84zM8.5 3.93L7.07 5.34l3.57 3.57 6.85-6.84L16.07.66l-5.42 5.42z"/></svg>';
-    if (status === 'DELIVERY_ACK' || status === 'delivered') return '<svg class="w-4 h-3 inline text-gray-400" viewBox="0 0 16 11"><path fill="currentColor" d="M11.07.66L5.64 6.08 3.49 3.93 2.07 5.34l3.57 3.57 6.85-6.84zM8.5 3.93L7.07 5.34l3.57 3.57 6.85-6.84L16.07.66l-5.42 5.42z"/></svg>';
-    if (status === 'SERVER_ACK' || status === 'sent') return '<svg class="w-4 h-3 inline text-gray-400" viewBox="0 0 16 11"><path fill="currentColor" d="M10.07.66L4.64 6.08 2.49 3.93 1.07 5.34l3.57 3.57 6.85-6.84z"/></svg>';
+  function chatTicks(status, msgId) {
+    const s = chatNormalizeStatus(status);
+    // Sanitize msgId — strip non-alphanumeric chars to prevent XSS in inline onclick
+    const safeId = (msgId || '').replace(/[^a-zA-Z0-9_-]/g, '');
+    // clickable variant (in message bubbles) vs static (inside popup, no recursive onclick)
+    const wrap = (title, svg) => safeId
+      ? `<span class="chat-ticks" title="${title}" onclick="event.stopPropagation();chatShowMsgInfo(event,'${safeId}')">${svg}</span>`
+      : `<span class="chat-ticks-static" title="${title}">${svg}</span>`;
+    const dblSvg = (color) => `<svg class="w-4 h-3 inline ${color}" viewBox="0 0 16 11"><path fill="currentColor" d="M11.07.66L5.64 6.08 3.49 3.93 2.07 5.34l3.57 3.57 6.85-6.84zM8.5 3.93L7.07 5.34l3.57 3.57 6.85-6.84L16.07.66l-5.42 5.42z"/></svg>`;
+    const sglSvg = (color) => `<svg class="w-4 h-3 inline ${color}" viewBox="0 0 16 11"><path fill="currentColor" d="M10.07.66L4.64 6.08 2.49 3.93 1.07 5.34l3.57 3.57 6.85-6.84z"/></svg>`;
+    if (s === 'PLAYED' || s === 'played')                   return wrap('Played', dblSvg('text-blue-500'));
+    if (s === 'READ' || s === 'read')                        return wrap('Read', dblSvg('text-blue-500'));
+    if (s === 'DELIVERY_ACK' || s === 'delivered')          return wrap('Delivered', dblSvg('text-gray-400'));
+    if (s === 'SERVER_ACK' || s === 'sent')                 return wrap('Sent', sglSvg('text-gray-400'));
+    if (s === 'error')                                      return wrap('Failed', `<svg class="w-3 h-3 inline text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>`);
     return '';
+  }
+
+  // ── Message info popup (click on ticks) ──────────────────────────────
+  function chatShowMsgInfo(evt, msgId) {
+    const existing = document.getElementById('chat-msg-info-popup');
+    if (existing) { existing.remove(); return; }
+    const msg = chatState.messages.find(m => m.id === msgId)
+             || chatState.allFetchedMessages.find(m => m.id === msgId);
+    if (!msg) return;
+    const s = chatNormalizeStatus(msg.status);
+    const labels = { SERVER_ACK:'Sent', sent:'Sent', DELIVERY_ACK:'Delivered', delivered:'Delivered', READ:'Read', read:'Read', PLAYED:'Played', played:'Played', error:'Failed to send' };
+    const statusLabel = labels[s] || s || 'Pending';
+    const statusColor = (s === 'READ' || s === 'read' || s === 'PLAYED' || s === 'played') ? '#2563eb' : '#6b7280';
+    const popup = document.createElement('div');
+    popup.id = 'chat-msg-info-popup';
+    popup.className = 'chat-msg-info-popup';
+    popup.innerHTML = `
+      <div style="font-size:11px;font-weight:600;color:#9ca3af;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px">Message Info</div>
+      <div style="display:flex;align-items:center;gap:8px;padding:3px 0">
+        <svg style="width:13px;height:13px;color:#9ca3af;flex-shrink:0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <span style="color:#374151">Sent: <strong>${chatFormatDateTime(msg.timestamp)}</strong></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;padding:3px 0">
+        ${chatTicks(msg.status)}
+        <span style="color:${statusColor};font-weight:600;margin-left:4px">${statusLabel}</span>
+      </div>
+      <div style="font-size:10px;color:#d1d5db;margin-top:8px;padding-top:8px;border-top:1px solid #f3f4f6">Click outside to close</div>`;
+    document.body.appendChild(popup);
+    const anchor = evt.currentTarget || evt.target;
+    const r = anchor ? anchor.getBoundingClientRect() : { bottom: evt.clientY, top: evt.clientY - 130, right: evt.clientX + 95, left: evt.clientX - 95 };
+    const popW = 200, popH = 130;
+    let top = r.bottom + 6, left = r.right - popW;
+    if (top + popH > window.innerHeight - 8) top = r.top - popH - 6;  // flip above if too low
+    if (top < 8) top = 8;                                               // clamp top edge
+    if (left + popW > window.innerWidth - 8) left = window.innerWidth - popW - 8; // clamp right edge
+    if (left < 8) left = 8;                                             // clamp left edge
+    popup.style.top = top + 'px';
+    popup.style.left = left + 'px';
+    setTimeout(() => {
+      const close = e => { if (!popup.contains(e.target)) { popup.remove(); document.removeEventListener('click', close); } };
+      document.addEventListener('click', close);
+    }, 0);
   }
 
   // ── IndexedDB helpers for chat stores ────────────────────────────────
@@ -4737,7 +4846,16 @@
         };
       }
 
-      const status = m.status || (fromMe ? 'SERVER_ACK' : '');
+      // Resolve best status: MessageUpdate array holds history of all ACKs — pick highest priority
+      let status = chatNormalizeStatus(m.status) || '';
+      if (Array.isArray(m.MessageUpdate) && m.MessageUpdate.length) {
+        const best = m.MessageUpdate
+          .map(u => chatNormalizeStatus(u?.status || u))
+          .filter(Boolean)  // drop empty/malformed entries
+          .reduce((a, b) => (CHAT_STATUS_PRIORITY[b] || 0) > (CHAT_STATUS_PRIORITY[a] || 0) ? b : a, status);
+        status = best || status;
+      }
+      status = status || (fromMe ? 'SERVER_ACK' : '');
 
       let senderJid = key.participant || m.participant || '';
       // If pushName is actually a JID (API bug), use it as senderJid and clear pushName
@@ -4829,11 +4947,11 @@
       <div class="shrink-0 relative">${avatar}</div>
       <div class="flex-1 min-w-0">
         <div class="flex items-center justify-between">
-          <p class="text-sm font-medium text-gray-900 truncate">${chatEsc(c.name)}</p>
+          <p dir="auto" class="text-sm font-medium text-gray-900 truncate">${chatEsc(c.name)}</p>
           <span class="text-xs ${c.unreadCount>0?'text-[#25D366] font-semibold':'text-gray-400'} shrink-0 ml-2">${chatFormatListDate(c.lastMsgTimestamp)}</span>
         </div>
         <div class="flex items-center justify-between mt-0.5">
-          <p class="text-xs text-gray-500 truncate">${ticks}${chatEsc(c.lastMessage||'')}</p>
+          <p dir="auto" class="text-xs text-gray-500 truncate">${ticks}${chatEsc(c.lastMessage||'')}</p>
           <div class="flex items-center gap-1 shrink-0">${pinIcon}${unread}</div>
         </div>
       </div>
@@ -5055,6 +5173,8 @@
 
   // ── Open / close conversation ────────────────────────────────────────
   async function chatOpenConversation(jid) {
+    document.getElementById('chat-msg-info-popup')?.remove(); // close stale popup on chat switch
+    document.querySelectorAll('.chat-delete-modal').forEach(e => e.remove()); // cancel any pending delete
     chatState.activeJid = jid;
     chatState.allFetchedMessages = [];
     chatState.historyFullyLoaded = false;
@@ -5082,7 +5202,7 @@
     const picUrl = rawPicUrl && !chatState._failedPicUrls.has(rawPicUrl) ? rawPicUrl : '';
     const color = chatAvatarColor(jid);
     if (picUrl) {
-      avatarEl.innerHTML = `<img src="${picUrl}" class="w-10 h-10 rounded-full object-cover" onerror="chatClearFailedPic('${picUrl}');this.parentElement.innerHTML='${chatInitials(name)}';this.parentElement.style.background='${color}'"/>`;
+      avatarEl.innerHTML = `<img src="${picUrl}" class="w-10 h-10 rounded-full object-cover" onerror="chatClearFailedPic(this.src);this.style.display='none';this.nextElementSibling.style.display='flex'"/><div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm" style="display:none;background:${color}">${chatEsc(chatInitials(name))}</div>`;
     } else {
       avatarEl.textContent = chatInitials(name);
       avatarEl.style.background = color;
@@ -5225,6 +5345,12 @@
   }
 
   function chatCloseConversation() {
+    document.getElementById('chat-msg-info-popup')?.remove(); // clean up popup on close
+    document.querySelectorAll('.chat-delete-modal').forEach(e => e.remove()); // cancel pending delete
+    chatState.selectMode = false;
+    chatState.selectedMsgs = new Set();
+    document.getElementById('chat-select-toolbar')?.classList.add('hidden');
+    document.getElementById('chat-input-bar')?.classList.remove('hidden');
     chatState.activeJid = null;
     chatState.messages = [];
     chatState.allFetchedMessages = [];
@@ -5406,9 +5532,10 @@
     if (m.quotedMsg) {
       const qName = m.quotedMsg.fromMe ? 'You' : (m.quotedMsg.participant ? chatResolveName(m.quotedMsg.participant) : '');
       const qBg = m.fromMe ? 'bg-[#c8e6c0]' : 'bg-gray-100';
-      quotedHtml = `<div class="${qBg} rounded-md px-3 py-1.5 mb-1 border-l-4 border-green-600 cursor-pointer text-xs" onclick="chatScrollToMsg('${m.quotedMsg.id}')">
+      const safeQId = (m.quotedMsg.id || '').replace(/[^a-zA-Z0-9_-]/g, '');
+      quotedHtml = `<div class="${qBg} rounded-md px-3 py-1.5 mb-1 border-l-4 border-green-600 cursor-pointer text-xs" onclick="chatScrollToMsg('${safeQId}')">
         ${qName ? `<p class="font-semibold text-green-800">${chatEsc(qName)}</p>` : ''}
-        <p class="text-gray-600 truncate">${chatEsc(m.quotedMsg.text)}</p>
+        <p dir="auto" class="text-gray-600 truncate">${chatEsc(m.quotedMsg.text || '')}</p>
       </div>`;
     }
 
@@ -5433,20 +5560,20 @@
     let contentHtml = '';
     switch (m.type) {
       case 'text':
-        contentHtml = `<p class="text-sm text-gray-900 whitespace-pre-wrap break-words">${chatLinkify(chatEsc(m.text))}</p>`;
+        contentHtml = `<p dir="auto" class="text-sm text-gray-900 whitespace-pre-wrap break-words">${chatLinkify(chatEsc(m.text))}</p>`;
         break;
       case 'image':
         const imgSrc = m.mediaUrl || (m.thumbBase64 ? `data:image/jpeg;base64,${m.thumbBase64}` : '');
         contentHtml = imgSrc
-          ? `<img src="${imgSrc}" class="rounded-md max-w-full cursor-pointer mb-1" onclick="chatOpenLightbox('${imgSrc}')" loading="lazy" style="max-height:300px"/>`
+          ? `<img src="${imgSrc}" data-src="${chatEsc(imgSrc)}" class="rounded-md max-w-full cursor-pointer mb-1" onclick="chatOpenLightbox(this.dataset.src)" loading="lazy" style="max-height:300px"/>`
           : '';
-        if (m.caption) contentHtml += `<p class="text-sm text-gray-900">${chatEsc(m.caption)}</p>`;
+        if (m.caption) contentHtml += `<p dir="auto" class="text-sm text-gray-900">${chatEsc(m.caption)}</p>`;
         break;
       case 'video':
         contentHtml = m.mediaUrl
           ? `<video src="${m.mediaUrl}" controls class="rounded-md max-w-full mb-1" style="max-height:300px"></video>`
           : '<p class="text-sm text-gray-500 italic">🎥 Video</p>';
-        if (m.caption) contentHtml += `<p class="text-sm text-gray-900">${chatEsc(m.caption)}</p>`;
+        if (m.caption) contentHtml += `<p dir="auto" class="text-sm text-gray-900">${chatEsc(m.caption)}</p>`;
         break;
       case 'audio':
         contentHtml = m.mediaUrl
@@ -5458,17 +5585,22 @@
           <svg class="w-8 h-8 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
           <span class="text-sm truncate">${chatEsc(m.fileName||'Document')}</span>
         </a>`;
-        if (m.caption) contentHtml += `<p class="text-sm text-gray-900">${chatEsc(m.caption)}</p>`;
+        if (m.caption) contentHtml += `<p dir="auto" class="text-sm text-gray-900">${chatEsc(m.caption)}</p>`;
         break;
       case 'sticker':
         contentHtml = m.mediaUrl ? `<img src="${m.mediaUrl}" class="max-w-[150px]" loading="lazy"/>` : '<p class="text-2xl">🏷</p>';
         break;
-      case 'location':
-        const coords = m.text.replace('📍 ', '').split(',');
-        contentHtml = `<a href="https://www.google.com/maps?q=${coords[0]},${coords[1]}" target="_blank" class="text-sm text-blue-600 hover:underline">📍 Open in Maps</a>`;
+      case 'location': {
+        const coords = (m.text || '').replace('📍 ', '').split(',').map(c => c.trim());
+        const lat = coords[0] ? encodeURIComponent(coords[0]) : '';
+        const lng = coords[1] ? encodeURIComponent(coords[1]) : '';
+        contentHtml = (lat && lng)
+          ? `<a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" class="text-sm text-blue-600 hover:underline">📍 Open in Maps</a>`
+          : `<p class="text-sm text-gray-500 italic">📍 Location</p>`;
         break;
+      }
       case 'contact':
-        contentHtml = `<p class="text-sm text-gray-900">${chatEsc(m.text)}</p>`;
+        contentHtml = `<p dir="auto" class="text-sm text-gray-900">${chatEsc(m.text)}</p>`;
         break;
       case 'poll': {
         let pollMeta = {};
@@ -5501,7 +5633,7 @@
               <div class="w-5 h-5 rounded-full border-2 border-gray-400 shrink-0 flex items-center justify-center">
                 ${count > 0 ? '<div class="w-2.5 h-2.5 rounded-full bg-gray-400"></div>' : ''}
               </div>
-              <span class="flex-1 text-[14px] text-gray-900 leading-snug">${chatEsc(opt)}</span>
+              <span dir="auto" class="flex-1 text-[14px] text-gray-900 leading-snug">${chatEsc(opt)}</span>
               <div class="flex items-center gap-1.5 shrink-0">
                 ${avatars ? `<div class="flex items-center">${avatars}</div>` : ''}
                 <span class="text-[13px] text-gray-600 min-w-[12px] text-right">${count > 0 ? count : ''}</span>
@@ -5513,7 +5645,7 @@
           </div>`;
         }).join('');
         contentHtml = `<div class="w-[280px]">
-          <p class="text-[15px] text-gray-900 leading-snug font-normal mb-1">${chatEsc(m.text)}</p>
+          <p dir="auto" class="text-[15px] text-gray-900 leading-snug font-normal mb-1">${chatEsc(m.text)}</p>
           <div class="flex items-center gap-1 text-xs text-gray-500 mb-2">
             <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             <span>${selectLabel}</span>
@@ -5526,12 +5658,12 @@
         break;
       }
       default:
-        contentHtml = `<p class="text-sm text-gray-900 whitespace-pre-wrap break-words">${chatEsc(m.text || `[${m.type}]`)}</p>`;
+        contentHtml = `<p dir="auto" class="text-sm text-gray-900 whitespace-pre-wrap break-words">${chatEsc(m.text || `[${m.type}]`)}</p>`;
     }
 
     // Timestamp + ticks
     const time = chatFormatTime(m.timestamp);
-    const ticks = m.fromMe ? ' ' + chatTicks(m.status) : '';
+    const ticks = m.fromMe ? ' ' + chatTicks(m.status, m.id) : '';
     const timeHtml = `<div class="flex items-center justify-end gap-1 mt-0.5"><span class="text-[10px] text-gray-500">${time}</span>${ticks}</div>`;
 
     // Reaction badges
@@ -5925,7 +6057,7 @@
     items += `<button onclick="chatReactTo('${msgId}');this.parentElement.remove()">😀 React</button>`;
     items += `<button onclick="chatEnterSelectMode('${msgId}');this.parentElement.remove()">☑ Select</button>`;
     if (msg.type === 'text' && msg.text) items += `<button onclick="chatCopyWithMeta('${msgId}');this.parentElement.remove()">📋 Copy</button>`;
-    if (msg.fromMe) items += `<button onclick="chatDeleteMsg('${msgId}');this.parentElement.remove()">🗑 Delete</button>`;
+    items += `<button onclick="chatDeleteMsg('${msgId}');this.parentElement.remove()">🗑 Delete</button>`;
     menu.innerHTML = items;
     document.body.appendChild(menu);
     const close = (e) => { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', close); } };
@@ -5961,6 +6093,8 @@
   function chatUpdateSelectCount() {
     const el = document.getElementById('chat-select-count');
     if (el) el.textContent = `${chatState.selectedMsgs.size} selected`;
+    const delBtn = document.getElementById('chat-delete-selected-btn');
+    if (delBtn) delBtn.disabled = chatState.selectedMsgs.size === 0;
   }
 
   function chatCopyWithMeta(msgId) {
@@ -5973,9 +6107,8 @@
   }
 
   function chatCopySelected() {
-    const selectedIds = [...chatState.selectedMsgs];
     const msgs = chatState.messages
-      .filter(m => selectedIds.includes(m.id))
+      .filter(m => chatState.selectedMsgs.has(m.id))
       .sort((a, b) => a.timestamp - b.timestamp);
     if (!msgs.length) return;
     const text = msgs.map(m => {
@@ -5988,9 +6121,8 @@
   }
 
   function chatForwardSelected() {
-    const selectedIds = [...chatState.selectedMsgs];
     const msgs = chatState.messages
-      .filter(m => selectedIds.includes(m.id))
+      .filter(m => chatState.selectedMsgs.has(m.id))
       .sort((a, b) => a.timestamp - b.timestamp);
     if (!msgs.length) return;
     // Build forward text (with metadata)
@@ -6035,22 +6167,104 @@
   }
 
   // ── Delete message ───────────────────────────────────────────────────
-  async function chatDeleteMsg(msgId) {
-    if (!chatState.activeJid) return;
-    if (!confirm('Delete this message for everyone?')) return;
-    const deleteJid = chatState.activeJid; // capture before any await
-    try {
-      const cfg = getCfg();
-      const msg = chatState.messages.find(m => m.id === msgId);
-      if (!msg) return;
-      await chatApiCall(`/chat/deleteMessageForEveryone/${cfg.instance}`, {
-        id: msgId,
-        remoteJid: deleteJid,
-        fromMe: msg.fromMe,
-      }, 'DELETE');
-      chatState.messages = chatState.messages.filter(m => m.id !== msgId);
-      chatRenderMessages();
-    } catch (e) { console.warn('chatDeleteMsg error:', e); }
+  function chatDeleteMsg(msgId) {
+    const msg = chatState.messages.find(m => m.id === msgId)
+              || chatState.allFetchedMessages.find(m => m.id === msgId);
+    if (!msg) return;
+    chatShowDeleteModal([msg]);
+  }
+
+  function chatDeleteSelected() {
+    if (!chatState.selectedMsgs.size) return;
+    const msgs = chatState.messages.filter(m => chatState.selectedMsgs.has(m.id));
+    if (!msgs.length) return;
+    chatShowDeleteModal(msgs);
+  }
+
+  function chatShowDeleteModal(msgs) {
+    document.querySelectorAll('.chat-delete-modal').forEach(e => e.remove());
+    if (!msgs || !msgs.length) return;
+    const allFromMe = msgs.every(m => m.fromMe);
+    const count = msgs.length;
+    const modal = document.createElement('div');
+    modal.className = 'chat-delete-modal';
+    modal._msgs = msgs; // store reference directly on element
+    modal.innerHTML = `
+      <div class="chat-delete-box">
+        <p class="chat-delete-title">Delete message${count > 1 ? 's' : ''}?</p>
+        <div class="chat-delete-actions">
+          <button class="chat-delete-btn" id="chat-del-everyone-btn"
+            ${allFromMe ? '' : 'disabled'}
+            onclick="chatConfirmDeleteForEveryone()">Delete for everyone</button>
+          <button class="chat-delete-btn" onclick="chatConfirmDeleteForMe()">Delete for me</button>
+          <button class="chat-delete-btn cancel" onclick="document.querySelector('.chat-delete-modal').remove()">Cancel</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  }
+
+  async function chatConfirmDeleteForEveryone() {
+    const modal = document.querySelector('.chat-delete-modal');
+    if (!modal || !modal._msgs) return;
+    const msgs = modal._msgs;
+    modal.remove();
+    const cfg = getCfg();
+    const jid = chatState.activeJid;
+    if (!jid) return;
+    const isGroup = chatIsGroup(jid);
+    const results = await Promise.allSettled(msgs.map(m =>
+      chatApiCall(`/message/delete/${cfg.instance}`, {
+        id: m.id,
+        remoteJid: jid,
+        fromMe: m.fromMe,
+        ...(isGroup && m.senderJid ? { participant: m.senderJid } : {})
+      }, 'DELETE')
+    ));
+    const failed = results.filter(r => r.status === 'rejected').length;
+    const deletedIds = new Set(msgs.filter((_, i) => results[i].status === 'fulfilled').map(m => m.id));
+    _chatRemoveMessages(deletedIds);
+    if (failed) chatShowToast(`${failed} message${failed > 1 ? 's' : ''} could not be deleted`, 'error');
+  }
+
+  async function chatConfirmDeleteForMe() {
+    const modal = document.querySelector('.chat-delete-modal');
+    if (!modal || !modal._msgs) return;
+    const msgs = modal._msgs;
+    modal.remove();
+    const cfg = getCfg();
+    const jid = chatState.activeJid;
+    if (!jid) { _chatRemoveMessages(new Set(msgs.map(m => m.id))); return; }
+    // Best-effort API call — some Evolution versions support /message/deleteMessage
+    await Promise.allSettled(msgs.map(m =>
+      chatApiCall(`/message/deleteMessage/${cfg.instance}`, {
+        id: m.id,
+        remoteJid: jid,
+        fromMe: m.fromMe,
+      }, 'DELETE')
+    ));
+    // Always remove locally regardless of API result
+    _chatRemoveMessages(new Set(msgs.map(m => m.id)));
+  }
+
+  function _chatRemoveMessages(deletedIds) {
+    if (!deletedIds.size) return;
+    const el = document.getElementById('chat-messages');
+    const scrollBottom = el ? (el.scrollHeight - el.scrollTop - el.clientHeight) : 0;
+    chatState.messages = chatState.messages.filter(m => !deletedIds.has(m.id));
+    chatState.allFetchedMessages = chatState.allFetchedMessages.filter(m => !deletedIds.has(m.id));
+    if (chatState.selectMode) chatExitSelectMode();
+    else chatRenderMessages();
+    if (el) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight - el.clientHeight - scrollBottom; });
+  }
+
+  function chatShowToast(message, type = 'info') {
+    document.querySelectorAll('.chat-toast').forEach(e => e.remove());
+    const toast = document.createElement('div');
+    toast.className = `chat-toast${type === 'error' ? ' chat-toast-error' : ''}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3500);
   }
 
   // ── Typing indicator ─────────────────────────────────────────────────
@@ -6204,7 +6418,7 @@
     if (e.key === 'Escape') {
       chatCloseLightbox();
       chatCloseNewModal();
-      document.querySelectorAll('.chat-ctx-menu,.chat-react-picker').forEach(el => el.remove());
+      document.querySelectorAll('.chat-ctx-menu,.chat-react-picker,.chat-delete-modal').forEach(el => el.remove());
     }
   });
 </script>
