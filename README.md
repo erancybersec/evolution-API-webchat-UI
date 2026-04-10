@@ -2,7 +2,7 @@
 
 A browser-based WhatsApp management interface built on top of [Evolution API v2](https://github.com/EvolutionAPI/evolution-api). No installation, no Node.js, no build step — just open `index.html`.
 
-**Current version: [v1.1.0](CHANGELOG.md)**
+**Current version: [v1.2.0](CHANGELOG.md)**
 
 ---
 
@@ -71,7 +71,7 @@ A full WhatsApp-style chat inbox — browse all conversations, send and receive 
 - Send to multiple recipients or groups with a **randomized delay** between messages (configurable min/max seconds) to simulate human sending behavior
 
 ### Scheduled Sending
-Schedule any Compose or Group Broadcast job to send automatically at a future time. The browser tab must remain open.
+Schedule any Compose or Group Broadcast job to send automatically at a future time. The browser tab must remain open — it does not need to be the active tab.
 
 | Action | Description |
 |--------|-------------|
@@ -83,7 +83,7 @@ Schedule any Compose or Group Broadcast job to send automatically at a future ti
 | **Cancel** | Cancel a pending job without editing |
 
 - Jobs are stored in **IndexedDB** (survives page refresh, handles large payloads)
-- Scheduler polls every 30 seconds; jobs execute in order with the configured random delay between messages
+- Scheduler polls every 30 seconds via a **Web Worker** — fires reliably even when the tab is in the background; jobs execute in order with the configured random delay between messages
 
 ### Phone Number Handling
 - Validates phone numbers using [libphonenumber-js](https://github.com/nicolo-ribaudo/libphonenumber-js)
