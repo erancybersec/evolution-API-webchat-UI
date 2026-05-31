@@ -468,7 +468,7 @@
               </button>
               <input type="file" id="chat-file-input" class="hidden" onchange="chatOnFileSelected(this)"/>
               <div class="flex-1 relative">
-                <textarea id="chat-input" rows="1" placeholder="Type a message" class="w-full bg-gray-100 border-0 rounded-2xl px-4 py-2.5 text-sm resize-none max-h-32 overflow-y-auto leading-5" oninput="chatAutoResize(this); chatOnTyping()" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();chatSend()}" onpaste="chatOnPaste(event)"></textarea>
+                <textarea id="chat-input" rows="1" placeholder="Type a message" class="w-full bg-gray-100 border-0 rounded-2xl px-4 py-2.5 text-sm resize-none max-h-32 overflow-y-auto leading-5" oninput="chatAutoResize(this); chatOnTyping(); chatQrOnInput(this.value)" onkeydown="if(chatQrKeydown(event))return; if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();chatSend()}" onpaste="chatOnPaste(event)"></textarea>
               </div>
               <button id="chat-mic-btn" onclick="chatToggleVoiceRecord()" class="w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full shrink-0 text-gray-500" title="Record voice">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-14 0m7 7v3m-4 0h8M12 3a3 3 0 00-3 3v5a3 3 0 006 0V6a3 3 0 00-3-3z"/></svg>
@@ -7308,6 +7308,120 @@
     el.style.height = 'auto';
     el.style.height = Math.min(el.scrollHeight, 128) + 'px';
   }
+
+  // ── Quick replies (WhatsApp Business style): type "/" in the composer ──
+  function chatQrDefaults() {
+    const d = [
+      { id: 'qr_thanks', shortcut: 'thanks', text: 'Thank you for reaching out! 🙏 How can I help?' },
+      { id: 'qr_hours', shortcut: 'hours', text: 'Our studio hours are Sun–Thu 9:00–21:00. 💃' },
+    ];
+    try { localStorage.setItem('wa_quick_replies', JSON.stringify(d)); } catch (e) {}
+    return d;
+  }
+  function chatQrLoad() {
+    try { return JSON.parse(localStorage.getItem('wa_quick_replies') || 'null') || chatQrDefaults(); }
+    catch (e) { return chatQrDefaults(); }
+  }
+  function chatQrSave(list) { try { localStorage.setItem('wa_quick_replies', JSON.stringify(list)); } catch (e) {} }
+  let _qrIndex = 0;
+  function chatQrOnInput(val) {
+    if (typeof val === 'string' && val[0] === '/') chatQrShow(val.slice(1).trim().toLowerCase());
+    else chatQrHide();
+  }
+  function chatQrHide() { const p = document.getElementById('chat-qr-picker'); if (p) p.remove(); }
+  function chatQrShow(filter) {
+    const all = chatQrLoad();
+    const list = filter ? all.filter(q => (q.shortcut + ' ' + q.text).toLowerCase().includes(filter)) : all;
+    chatQrHide();
+    const bar = document.getElementById('chat-input-bar');
+    if (!bar) return;
+    const r = bar.getBoundingClientRect();
+    const p = document.createElement('div');
+    p.id = 'chat-qr-picker';
+    p.style.cssText = `position:fixed;left:${r.left + 8}px;right:${window.innerWidth - r.right + 8}px;bottom:${window.innerHeight - r.top + 6}px;z-index:60;background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.16);max-height:46vh;overflow:auto`;
+    _qrIndex = 0;
+    let rows = list.map((q, i) => `<button type="button" data-qr="${chatEsc(q.id)}" onclick="chatQrPick('${chatEsc(q.id)}')" style="display:block;width:100%;text-align:left;padding:9px 14px;border:none;background:${i === 0 ? '#f3f4f6' : '#fff'};cursor:pointer">
+        <div style="font-size:12px;font-weight:600;color:#16a34a">/${chatEsc(q.shortcut)}</div>
+        <div dir="auto" style="font-size:13px;color:#374151;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${chatEsc(q.text)}</div>
+      </button>`).join('');
+    if (!list.length) rows = `<div style="padding:12px 14px;font-size:13px;color:#9ca3af">No matching quick replies</div>`;
+    p.innerHTML = rows + `<button type="button" onclick="chatQrOpenManager()" style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:10px 14px;border:none;border-top:1px solid #f1f1f1;background:#fff;cursor:pointer;color:#6b7280;font-size:13px">⚙️ Manage quick replies</button>`;
+    document.body.appendChild(p);
+  }
+  function chatQrHighlight(delta) {
+    const p = document.getElementById('chat-qr-picker'); if (!p) return;
+    const btns = [...p.querySelectorAll('button[data-qr]')];
+    if (!btns.length) return;
+    _qrIndex = (_qrIndex + delta + btns.length) % btns.length;
+    btns.forEach((b, i) => b.style.background = i === _qrIndex ? '#f3f4f6' : '#fff');
+    btns[_qrIndex].scrollIntoView({ block: 'nearest' });
+  }
+  function chatQrKeydown(e) {
+    const p = document.getElementById('chat-qr-picker'); if (!p) return false;
+    if (e.key === 'Escape') { chatQrHide(); e.preventDefault(); return true; }
+    if (e.key === 'ArrowDown') { chatQrHighlight(1); e.preventDefault(); return true; }
+    if (e.key === 'ArrowUp') { chatQrHighlight(-1); e.preventDefault(); return true; }
+    if (e.key === 'Enter' && !e.shiftKey) {
+      const btns = [...p.querySelectorAll('button[data-qr]')];
+      if (btns[_qrIndex]) { btns[_qrIndex].click(); e.preventDefault(); return true; }
+    }
+    return false;
+  }
+  function chatQrPick(id) {
+    const q = chatQrLoad().find(x => x.id === id);
+    chatQrHide();
+    const inp = document.getElementById('chat-input');
+    if (q && inp) { inp.value = q.text; chatAutoResize(inp); inp.focus(); }
+  }
+  function chatQrOpenManager() {
+    chatQrHide();
+    document.getElementById('chat-qr-modal')?.remove();
+    const ov = document.createElement('div');
+    ov.id = 'chat-qr-modal';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:130;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;padding:16px';
+    ov.innerHTML = `<div style="background:#fff;border-radius:16px;max-width:440px;width:100%;max-height:85vh;display:flex;flex-direction:column;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #eee">
+        <span style="font-size:16px;font-weight:700;color:#111">Quick replies</span>
+        <button onclick="this.closest('#chat-qr-modal').remove()" style="border:none;background:none;cursor:pointer;color:#6b7280;font-size:18px">✕</button>
+      </div>
+      <div id="chat-qr-list" style="flex:1;overflow:auto;padding:8px 12px"></div>
+      <div style="border-top:1px solid #eee;padding:12px 16px;display:flex;flex-direction:column;gap:8px">
+        <input id="chat-qr-new-shortcut" placeholder="Shortcut (e.g. thanks)" style="border:1px solid #d1d5db;border-radius:8px;padding:8px 12px;font-size:14px"/>
+        <textarea id="chat-qr-new-text" rows="2" dir="auto" placeholder="Message text…" style="border:1px solid #d1d5db;border-radius:8px;padding:8px 12px;font-size:14px;resize:none"></textarea>
+        <button onclick="chatQrAdd()" style="background:#25D366;color:#fff;border:none;border-radius:8px;padding:10px;font-weight:600;cursor:pointer">＋ Add quick reply</button>
+      </div>
+    </div>`;
+    document.body.appendChild(ov);
+    ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+    chatQrRenderManager();
+  }
+  function chatQrRenderManager() {
+    const el = document.getElementById('chat-qr-list'); if (!el) return;
+    const list = chatQrLoad();
+    el.innerHTML = list.length ? list.map(q => `<div style="display:flex;gap:8px;align-items:flex-start;padding:8px;border-bottom:1px solid #f3f4f6">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:600;color:#16a34a">/${chatEsc(q.shortcut)}</div>
+          <div dir="auto" style="font-size:13px;color:#374151">${chatEsc(q.text)}</div>
+        </div>
+        <button onclick="chatQrDelete('${chatEsc(q.id)}')" title="Delete" style="border:none;background:none;cursor:pointer;color:#ef4444">🗑</button>
+      </div>`).join('') : '<div style="padding:16px;text-align:center;color:#9ca3af;font-size:13px">No quick replies yet. Add one below.</div>';
+  }
+  function chatQrAdd() {
+    const sc = (document.getElementById('chat-qr-new-shortcut').value || '').trim().replace(/^\//, '').replace(/\s+/g, '-');
+    const tx = (document.getElementById('chat-qr-new-text').value || '').trim();
+    if (!sc || !tx) { chatShowToast('Enter a shortcut and a message', 'error'); return; }
+    const list = chatQrLoad();
+    list.push({ id: 'qr_' + Date.now(), shortcut: sc, text: tx });
+    chatQrSave(list);
+    document.getElementById('chat-qr-new-shortcut').value = '';
+    document.getElementById('chat-qr-new-text').value = '';
+    chatQrRenderManager();
+  }
+  function chatQrDelete(id) { chatQrSave(chatQrLoad().filter(q => q.id !== id)); chatQrRenderManager(); }
+  document.addEventListener('click', function (e) {
+    const p = document.getElementById('chat-qr-picker');
+    if (p && !p.contains(e.target) && e.target.id !== 'chat-input') chatQrHide();
+  });
 
   // ── Attach media ─────────────────────────────────────────────────────
   function chatAttachMedia() {
