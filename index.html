@@ -4409,7 +4409,7 @@
       name,
       profilePicUrl: c.profilePicUrl || c.profilePictureUrl || (contact && contact.profilePicUrl) || '',
       lastMessage: lastText,
-      lastMsgTimestamp: c.lastMsgTimestamp || c.updatedAt || (lastMsg.messageTimestamp ? lastMsg.messageTimestamp * 1000 : 0),
+      lastMsgTimestamp: _chatTsNum(c.lastMsgTimestamp || c.updatedAt || (lastMsg.messageTimestamp ? lastMsg.messageTimestamp * 1000 : 0)),
       unreadCount: c.unreadCount || 0,
       isGroup: chatIsGroup(jid),
       fromMe: lastMsg.key ? lastMsg.key.fromMe : false,
@@ -5733,11 +5733,14 @@
   // and handles MESSAGES_UPSERT / CHATS_UPSERT / CHATS_UPDATE / CHATS_DELETE.
   // Polling (Option 2 delta) remains active as a fallback safety net.
 
+  // Timestamps can arrive as a number (ms) OR an ISO string (from updatedAt).
+  // Always compare numerically — string subtraction yields NaN and breaks sort.
+  function _chatTsNum(x) { return typeof x === 'string' ? (Date.parse(x) || 0) : (x || 0); }
   function _chatSortConvs(convs) {
     convs.sort((a, b) => {
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
-      return (b.lastMsgTimestamp || 0) - (a.lastMsgTimestamp || 0);
+      return _chatTsNum(b.lastMsgTimestamp) - _chatTsNum(a.lastMsgTimestamp);
     });
   }
 
