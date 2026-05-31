@@ -3975,6 +3975,11 @@
     selectMode: false,
     selectedMsgs: new Set(),
     markedReadAt: (() => { try { return JSON.parse(localStorage.getItem('chat_markedReadAt') || '{}'); } catch(e) { return {}; } })(), // jid → lastMsgTimestamp; persisted in localStorage
+    _wsSocket: null,           // Socket.IO instance (Option 4)
+    _wsConnected: false,       // true when WS is connected
+    _wsPermanentlyFailed: false, // true after reconnect_failed — don't retry within session
+    _pollCount: 0,             // incremented each poll cycle (for periodic forced full-sync)
+    _lastFullSyncAt: 0,        // timestamp of last chatFetchConversations() call
   };
 
   // ── Avatar colors (deterministic by jid) ─────────────────────────────
@@ -4208,17 +4213,26 @@
       const cfg = getCfg();
       const data = await chatApiCall(`/chat/findContacts/${cfg.instance}`, {});
       if (!Array.isArray(data)) return [];
-      const contacts = data.map(c => ({
-        id: c.remoteJid || c.id || c.wid,
-        // name = phone address book name (saved by user), pushName = WhatsApp profile name
-        savedName: c.name || c.verifiedName || '',
-        pushName: c.pushName || '',
-        // displayName priority: phone-saved name > pushName > phone number
-        displayName: c.name || c.verifiedName || c.pushName || chatExtractNumber(c.remoteJid || c.id || c.wid || ''),
-        profilePicUrl: c.profilePicUrl || c.profilePictureUrl || '',
-        phone: chatExtractNumber(c.remoteJid || c.id || c.wid || ''),
-        isFavorite: c.isFavorite || c.starred || false,
-      })).filter(c => c.id);
+      const contacts = data.map(c => {
+        const id = c.remoteJid || c.id || c.wid;
+        // Evolution API bug #2426: every sent message overwrites Contact.pushName with ''.
+        // Guard: keep the previously cached name if the API returns an empty one.
+        const cached = chatState.contacts[id] || {};
+        const savedName = c.name || c.verifiedName || cached.savedName || '';
+        const pushName  = c.pushName || cached.pushName || '';
+        return {
+          id,
+          savedName,
+          pushName,
+          // displayName priority: saved phone-book name > pushName > cached displayName > phone number
+          displayName: savedName || pushName ||
+                       (cached.displayName && !/^\d+$/.test(cached.displayName) ? cached.displayName : '') ||
+                       chatExtractNumber(id),
+          profilePicUrl: c.profilePicUrl || c.profilePictureUrl || cached.profilePicUrl || '',
+          phone: chatExtractNumber(id),
+          isFavorite: c.isFavorite || c.starred || cached.isFavorite || false,
+        };
+      }).filter(c => c.id);
       contacts.forEach(c => { chatState.contacts[c.id] = c; });
       chatDbPutMany('chat_contacts', contacts).catch(e => console.warn('[Chat] DB contacts write failed (non-fatal):', e.message));
       return contacts;
@@ -4237,7 +4251,9 @@
   function _chatParseConv(c, forceArchived) {
     const jid = c.remoteJid || c.id || '';
     const lastMsg = c.lastMessage || c.lastMsgContent || {};
-    const contact = chatState.contacts[jid];
+    // remoteJidAlt links a @lid JID to its @s.whatsapp.net counterpart (and vice versa)
+    const altJid = (c.lastMessage?.key || c.lastMsgKey || {}).remoteJidAlt || '';
+    const contact = chatState.contacts[jid] || (altJid ? chatState.contacts[altJid] : null);
 
     // Name resolution:
     // Groups:  verifiedGroupName (group metadata API) → c.subject (findChats subject field) → c.name → fallback
@@ -4265,12 +4281,16 @@
         if (contact && !contact.savedName) {
           contact.pushName = name;
           contact.displayName = name;
+          // Persist discovered name so it survives Evolution API bug #2426 (blank pushName on sent messages)
+          chatDbPut('chat_contacts', contact).catch(() => {});
         } else if (!contact) {
-          chatState.contacts[jid] = {
+          const newContact = {
             id: jid, savedName: '', pushName: name, displayName: name,
             profilePicUrl: c.profilePicUrl || c.profilePictureUrl || '',
             phone: chatExtractNumber(jid), isFavorite: false,
           };
+          chatState.contacts[jid] = newContact;
+          chatDbPut('chat_contacts', newContact).catch(() => {});
         }
       }
     }
@@ -4353,17 +4373,23 @@
       const normalData = await chatApiCall(`/chat/findChats/${cfg.instance}`, {}).catch(() => []);
       const data = Array.isArray(normalData) ? normalData : [];
 
-      // Try archive-specific calls in background (non-blocking)
-      // These may return same data as normal call (known API bug #1822)
+      // Try archive-specific calls — but skip if we've already confirmed they return the
+      // same data as the normal call (common Evolution API behaviour, bug #1822).
+      // _archiveCallsUseless is persisted in localStorage so we skip from the very first
+      // poll after a page reload too.
       let archData = [], archData2 = [];
-      try {
-        const [a1, a2] = await Promise.all([
-          chatApiCall(`/chat/findChats/${cfg.instance}`, { archive: true }).catch(() => []),
-          chatApiCall(`/chat/findChats/${cfg.instance}`, { where: { archived: true } }).catch(() => []),
-        ]);
-        archData = Array.isArray(a1) ? a1 : [];
-        archData2 = Array.isArray(a2) ? a2 : [];
-      } catch (e) { console.warn('[Chat] archive fetch strategies failed:', e); }
+      const archUseless = chatState._archiveCallsUseless ||
+        localStorage.getItem('chat_archiveCallsUseless') === '1';
+      if (!archUseless) {
+        try {
+          const [a1, a2] = await Promise.all([
+            chatApiCall(`/chat/findChats/${cfg.instance}`, { archive: true }).catch(() => []),
+            chatApiCall(`/chat/findChats/${cfg.instance}`, { where: { archived: true } }).catch(() => []),
+          ]);
+          archData = Array.isArray(a1) ? a1 : [];
+          archData2 = Array.isArray(a2) ? a2 : [];
+        } catch (e) { console.warn('[Chat] archive fetch strategies failed:', e); }
+      }
 
       // Deep-log raw responses once for debugging archive detection
       if (!chatState._rawFieldsLogged && (data.length || archData.length)) {
@@ -4434,6 +4460,21 @@
       };
       processArchived(archData);
       processArchived(archData2);
+
+      // If archive calls returned no exclusive items (same as normal call, or empty),
+      // they are useless on this server — skip them on every future poll.
+      // Note: we also detect uselessness when both archives return 0 items while
+      // the normal call returned data — that means there are simply no archived chats
+      // (or the server ignores the filter entirely), so the 2 archive calls are wasted.
+      if (!archUseless && data.length > 0) {
+        const archExclusiveCount =
+          [...archData, ...archData2].filter(c => !normalJids.has(c.remoteJid || c.id || '')).length;
+        if (archExclusiveCount === 0) {
+          chatState._archiveCallsUseless = true;
+          try { localStorage.setItem('chat_archiveCallsUseless', '1'); } catch(e) {}
+          console.log('[Chat] Archive API calls confirmed redundant — skipping in future polls (saves 2 API calls/cycle)');
+        }
+      }
 
       // Also scan normal data for any archive-like flags (multiple field names)
       data.forEach(c => {
@@ -4507,12 +4548,53 @@
 
       // ── Deduplicate LID / phone JID pairs ──
       // WhatsApp assigns both @lid and @s.whatsapp.net JIDs to the same contact.
-      // Detect duplicates via matching profile picture URLs and merge them.
+      // Pass 0: use remoteJidAlt (authoritative API link) to directly merge LID↔phone pairs.
       chatState.jidAliases = chatState.jidAliases || {};  // secondary → primary
+      {
+        const convById = Object.fromEntries(convs.map(c => [c.id, c]));
+        const removeAlt = new Set();
+        convs.forEach(c => {
+          if (c.isGroup || removeAlt.has(c.id)) return;
+          const altJid = c._lastMsgKey?.remoteJidAlt || '';
+          if (!altJid || altJid === c.id) return;
+          const other = convById[altJid];
+          if (!other || removeAlt.has(other.id)) return;
+          // Pick primary: real name > most recent
+          const cHasName = c.name && !/^\d+$/.test(c.name);
+          const oHasName = other.name && !/^\d+$/.test(other.name);
+          let primary, secondary;
+          if (cHasName && !oHasName) { primary = c; secondary = other; }
+          else if (oHasName && !cHasName) { primary = other; secondary = c; }
+          else { primary = (c.lastMsgTimestamp||0) >= (other.lastMsgTimestamp||0) ? c : other; secondary = primary === c ? other : c; }
+          const contacts = chatState.contacts || {};
+          const bestName = [primary, secondary].reduce((name, x) => {
+            if (name && !/^\d+$/.test(name)) return name;
+            const rec = contacts[x.id];
+            const n = rec?.savedName || rec?.displayName || rec?.pushName || x.name || '';
+            return (n && !/^\d+$/.test(n)) ? n : name;
+          }, '');
+          if (bestName && !/^\d+$/.test(bestName)) primary.name = bestName;
+          if (!primary.profilePicUrl && secondary.profilePicUrl) primary.profilePicUrl = secondary.profilePicUrl;
+          primary.unreadCount = (primary.unreadCount || 0) + (secondary.unreadCount || 0);
+          if ((secondary.lastMsgTimestamp||0) > (primary.lastMsgTimestamp||0)) {
+            primary.lastMsgTimestamp = secondary.lastMsgTimestamp;
+            primary.lastMessage = secondary.lastMessage;
+            primary.fromMe = secondary.fromMe;
+          }
+          chatState.jidAliases[secondary.id] = primary.id;
+          removeAlt.add(secondary.id);
+        });
+        if (removeAlt.size > 0) {
+          convs = convs.filter(c => !removeAlt.has(c.id));
+          console.log(`[Chat] Deduplicated ${removeAlt.size} remoteJidAlt pairs. Aliases:`, chatState.jidAliases);
+        }
+      }
       const picMap = {};
+      const normPicUrl = url => url ? url.split('?')[0] : '';
       convs.forEach(c => {
         if (c.profilePicUrl && !c.isGroup) {
-          (picMap[c.profilePicUrl] = picMap[c.profilePicUrl] || []).push(c);
+          const key = normPicUrl(c.profilePicUrl);
+          (picMap[key] = picMap[key] || []).push(c);
         }
       });
       const removeIds = new Set();
@@ -4531,8 +4613,16 @@
             if (lidHasName && !phoneHasName) { primary = lid; secondary = phone; }
             else if (phoneHasName && !lidHasName) { primary = phone; secondary = lid; }
             else { primary = (phone.lastMsgTimestamp || 0) >= (lid.lastMsgTimestamp || 0) ? phone : lid; secondary = primary === phone ? lid : phone; }
-            // Merge metadata
-            if (!primary.name || /^\d+$/.test(primary.name)) primary.name = secondary.name;
+            // Merge metadata — prefer a real name from either entry's contact record
+            const contacts = chatState.contacts || {};
+            const bestName = [primary, secondary].reduce((name, c) => {
+              if (name && !/^\d+$/.test(name)) return name;
+              const rec = contacts[c.id];
+              const n = rec?.savedName || rec?.displayName || rec?.pushName || c.name || '';
+              return (n && !/^\d+$/.test(n)) ? n : name;
+            }, '');
+            if (bestName && !/^\d+$/.test(bestName)) primary.name = bestName;
+            if (!primary.profilePicUrl && secondary.profilePicUrl) primary.profilePicUrl = secondary.profilePicUrl;
             primary.unreadCount = (primary.unreadCount || 0) + (secondary.unreadCount || 0);
             if ((secondary.lastMsgTimestamp || 0) > (primary.lastMsgTimestamp || 0)) {
               primary.lastMsgTimestamp = secondary.lastMsgTimestamp;
@@ -4547,6 +4637,50 @@
       if (removeIds.size > 0) {
         convs = convs.filter(c => !removeIds.has(c.id));
         console.log(`[Chat] Deduplicated ${removeIds.size} LID/phone duplicates. Aliases:`, chatState.jidAliases);
+      }
+
+      // ── Secondary deduplication: same phone number, different JID suffix ──
+      // Catches cases where one entry lacks a profile picture (missed by picMap pass above).
+      // Groups @s.whatsapp.net and @lid entries that share the same numeric local part.
+      {
+        const phoneNumMap = {};
+        convs.forEach(c => {
+          if (c.isGroup) return;
+          const local = c.id.split('@')[0];
+          if (/^\d+$/.test(local)) {
+            (phoneNumMap[local] = phoneNumMap[local] || []).push(c);
+          }
+        });
+        const removeIds2 = new Set();
+        Object.values(phoneNumMap).forEach(group => {
+          if (group.length < 2) return;
+          // Pick primary: prefer the one with a real name, then most recent activity
+          group.sort((a, b) => {
+            const aHasName = a.name && !/^\d+$/.test(a.name);
+            const bHasName = b.name && !/^\d+$/.test(b.name);
+            if (aHasName && !bHasName) return -1;
+            if (bHasName && !aHasName) return 1;
+            return (b.lastMsgTimestamp || 0) - (a.lastMsgTimestamp || 0);
+          });
+          const [primary, ...secondaries] = group;
+          secondaries.forEach(secondary => {
+            if (removeIds2.has(primary.id)) return; // already removed
+            if (!primary.profilePicUrl && secondary.profilePicUrl) primary.profilePicUrl = secondary.profilePicUrl;
+            if (!primary.name || /^\d+$/.test(primary.name)) primary.name = secondary.name;
+            primary.unreadCount = (primary.unreadCount || 0) + (secondary.unreadCount || 0);
+            if ((secondary.lastMsgTimestamp || 0) > (primary.lastMsgTimestamp || 0)) {
+              primary.lastMsgTimestamp = secondary.lastMsgTimestamp;
+              primary.lastMessage = secondary.lastMessage;
+              primary.fromMe = secondary.fromMe;
+            }
+            chatState.jidAliases[secondary.id] = primary.id;
+            removeIds2.add(secondary.id);
+          });
+        });
+        if (removeIds2.size > 0) {
+          convs = convs.filter(c => !removeIds2.has(c.id));
+          console.log(`[Chat] Deduplicated ${removeIds2.size} same-phone duplicates. Aliases:`, chatState.jidAliases);
+        }
       }
 
       // Fetch authoritative group subjects from the group metadata API
@@ -4586,11 +4720,173 @@
       const archivedCount = convs.filter(c => c.archived).length;
       console.log('[Chat] chatFetchConversations done: total=', convs.length, 'archived=', archivedCount, 'visible=', convs.length - archivedCount);
       chatSetLoadStatus('');
+      // Record timestamp of this full sync — delta sync uses it as baseline
+      chatState._lastFullSyncAt = Date.now();
+      try { localStorage.setItem('chat_lastSyncAt', String(chatState._lastFullSyncAt)); } catch(e) {}
       // DB write is best-effort — never block the UI
       chatDbPutMany('chat_conversations', convs).catch(e => console.warn('[Chat] DB write failed (non-fatal):', e.message));
       return convs;
     } catch (e) { console.warn('chatFetchConversations error:', e); chatSetLoadStatus(''); return []; }
     finally { chatState._fetchingConversations = false; }
+  }
+
+  // ── Option 2: Delta sync — only fetch chats updated since last full sync ──
+  // Uses Evolution API's `where: { updatedAt: { gt: isoTimestamp } }` filter.
+  // Falls back to full chatFetchConversations() if: no prior sync exists, too
+  // many results returned (filter likely not working), or on any error.
+  async function chatFetchDeltaConversations() {
+    if (chatState._fetchingConversations) return;
+
+    // If we've already confirmed the API doesn't support updatedAt filtering,
+    // skip the wasted delta call and go straight to full fetch.
+    // Also check localStorage so we remember this across page reloads.
+    if (chatState._deltaFilterSupported === false ||
+        localStorage.getItem('chat_deltaFilterSupported') === '0') {
+      chatState._deltaFilterSupported = false; // sync in-memory flag
+      return chatFetchConversations();
+    }
+
+    const lastSyncAt = chatState._lastFullSyncAt ||
+      +(localStorage.getItem('chat_lastSyncAt') || 0);
+
+    // No prior sync or empty state → full fetch (lock managed by chatFetchConversations itself)
+    if (!lastSyncAt || !chatState.conversations.length) {
+      return chatFetchConversations();
+    }
+
+    // Acquire lock for the delta path
+    chatState._fetchingConversations = true;
+    let _shouldFallBack = false;
+
+    try {
+      const cfg = getCfg();
+      // Overlap by 30 s to avoid missing updates on clock skew
+      const since = new Date(lastSyncAt - 30_000).toISOString();
+
+      const deltaRaw = await chatApiCall(`/chat/findChats/${cfg.instance}`, {
+        where: { updatedAt: { gt: since } }
+      }).catch(() => null);
+
+      // If API doesn't support filter (null/error), schedule fallback after lock release
+      if (!Array.isArray(deltaRaw)) {
+        _shouldFallBack = true;
+        return;
+      }
+
+      // If we got back ≥ 80 % of our existing list, the filter is probably not working.
+      // Mark it permanently so future polls skip the delta attempt entirely.
+      if (deltaRaw.length >= chatState.conversations.length * 0.8 && chatState.conversations.length > 10) {
+        console.log('[Chat] Delta filter unsupported by API — switching to full fetch only');
+        chatState._deltaFilterSupported = false;
+        try { localStorage.setItem('chat_deltaFilterSupported', '0'); } catch(e) {}
+        _shouldFallBack = true;
+        return;
+      }
+      // If we reach here, the filter worked — mark as supported
+      if (chatState._deltaFilterSupported !== true) {
+        console.log('[Chat] Delta filter confirmed working ✓');
+        chatState._deltaFilterSupported = true;
+        try { localStorage.setItem('chat_deltaFilterSupported', '1'); } catch(e) {}
+      }
+
+      // Update timestamp immediately so next poll starts from now
+      chatState._lastFullSyncAt = Date.now();
+      try { localStorage.setItem('chat_lastSyncAt', String(chatState._lastFullSyncAt)); } catch(e) {}
+
+      if (deltaRaw.length === 0) {
+        console.log('[Chat] Delta sync: no changes since', since);
+        return; // nothing to do
+      }
+
+      console.log(`[Chat] Delta sync: ${deltaRaw.length} updated conversations since ${since}`);
+
+      const archivedJids = chatGetArchivedJids();
+      // Build lookup by primary JID (accounting for dedup aliases)
+      const existingById = {};
+      chatState.conversations.forEach(c => { existingById[c.id] = c; });
+
+      const toAddToDb = [];
+      const newConvsToAppend = [];
+
+      deltaRaw.forEach(raw => {
+        const rawJid = raw.remoteJid || raw.id || '';
+        if (!rawJid || rawJid === 'status@broadcast') return;
+        // Resolve through alias map in case this JID was dedup'd to another
+        const jid = chatState.jidAliases?.[rawJid] || rawJid;
+
+        const parsed = _chatParseConv(raw, archivedJids.includes(rawJid));
+        if (archivedJids.includes(rawJid)) parsed.archived = true;
+
+        const existing = existingById[jid];
+        if (existing) {
+          // ── Update in-place ──
+          // Only advance lastMessage if this event is genuinely newer
+          if ((parsed.lastMsgTimestamp || 0) >= (existing.lastMsgTimestamp || 0)) {
+            existing.lastMessage = parsed.lastMessage;
+            existing.lastMsgTimestamp = parsed.lastMsgTimestamp;
+            existing.fromMe = parsed.fromMe;
+            existing._lastMsgKey = parsed._lastMsgKey;
+          }
+          // Keep unread at 0 for the active chat
+          if (jid === chatState.activeJid) {
+            existing.unreadCount = 0;
+          } else if (chatState.markedReadAt[jid] !== undefined) {
+            const lastTs = +new Date(parsed.lastMsgTimestamp);
+            const markedTs = +new Date(chatState.markedReadAt[jid]);
+            existing.unreadCount = lastTs > markedTs ? parsed.unreadCount : 0;
+            if (lastTs > markedTs) {
+              delete chatState.markedReadAt[jid];
+              try { localStorage.setItem('chat_markedReadAt', JSON.stringify(chatState.markedReadAt)); } catch(e) {}
+            }
+          } else {
+            existing.unreadCount = parsed.unreadCount;
+          }
+          // Upgrade name if we now have a real one
+          if (parsed.name && !/^\d+$/.test(parsed.name) &&
+              (!existing.name || /^\d+$/.test(existing.name))) {
+            existing.name = parsed.name;
+          }
+          // Upgrade profile pic if missing
+          if (parsed.profilePicUrl && !existing.profilePicUrl) {
+            existing.profilePicUrl = parsed.profilePicUrl;
+          }
+          toAddToDb.push(existing);
+        } else {
+          // ── New conversation not seen before ──
+          // Apply active-chat and markedReadAt logic
+          if (jid === chatState.activeJid) parsed.unreadCount = 0;
+          newConvsToAppend.push(parsed);
+          toAddToDb.push(parsed);
+        }
+      });
+
+      // Append genuinely new conversations
+      if (newConvsToAppend.length) {
+        newConvsToAppend.forEach(c => { existingById[c.id] = c; });
+        chatState.conversations.push(...newConvsToAppend);
+      }
+
+      // Re-sort (pinned first, then by recency)
+      chatState.conversations.sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+        return (b.lastMsgTimestamp || 0) - (a.lastMsgTimestamp || 0);
+      });
+
+      // Persist changed records (best-effort)
+      if (toAddToDb.length) {
+        chatDbPutMany('chat_conversations', toAddToDb).catch(e =>
+          console.warn('[Chat] Delta DB write failed (non-fatal):', e.message));
+      }
+    } catch (e) {
+      console.warn('[Chat] chatFetchDeltaConversations error:', e);
+      _shouldFallBack = true;
+    } finally {
+      // Always release OUR lock before any fallback
+      chatState._fetchingConversations = false;
+    }
+    // Fallback happens AFTER our lock is released so chatFetchConversations can acquire it cleanly
+    if (_shouldFallBack) return chatFetchConversations();
   }
 
   // ── API: Fetch messages for a conversation ───────────────────────────
@@ -5165,13 +5461,266 @@
     chatState._fetchingConversations = false;
     chatState._pollingMessages = false;
     chatSetLoadStatus('');
+    chatDestroyWebSocket();
+  }
+
+  // ── Option 4: WebSocket real-time events via Evolution API Socket.IO ──────
+  // Dynamically loads Socket.IO client, connects to the instance namespace,
+  // and handles MESSAGES_UPSERT / CHATS_UPSERT / CHATS_UPDATE / CHATS_DELETE.
+  // Polling (Option 2 delta) remains active as a fallback safety net.
+
+  function _chatSortConvs(convs) {
+    convs.sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return (b.lastMsgTimestamp || 0) - (a.lastMsgTimestamp || 0);
+    });
+  }
+
+  let _socketIOLoadPromise = null;
+  async function _chatLoadSocketIO() {
+    if (window.io) return window.io;
+    // Deduplicate concurrent load attempts
+    if (_socketIOLoadPromise) return _socketIOLoadPromise;
+    _socketIOLoadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.socket.io/4.7.5/socket.io.min.js';
+      script.onload = () => { _socketIOLoadPromise = null; resolve(window.io); };
+      script.onerror = () => { _socketIOLoadPromise = null; reject(new Error('Failed to load Socket.IO')); };
+      document.head.appendChild(script);
+    });
+    return _socketIOLoadPromise;
+  }
+
+  async function chatConnectWebSocket() {
+    const cfg = getCfg();
+    if (!cfg.base || !cfg.instance || !cfg.apikey) return;
+    // Don't retry if we already confirmed WS is unavailable on this server.
+    // _wsPermanentlyFailed resets on page reload, giving the server a fresh chance
+    // (e.g. after an upgrade). But within a session, we stop after 5 failed attempts.
+    if (chatState._wsPermanentlyFailed) return;
+
+    // Disconnect any stale socket
+    chatDestroyWebSocket();
+
+    let io;
+    try { io = await _chatLoadSocketIO(); }
+    catch (e) {
+      console.warn('[Chat WS] Could not load Socket.IO:', e.message);
+      chatState._wsPermanentlyFailed = true; // CDN blocked/unavailable — don't retry in session
+      return;
+    }
+
+    try {
+      // Evolution API Socket.IO: the server runs at the root path.
+      // The instance is identified via the namespace (/<instanceName>).
+      // Socket.IO automatically connects to <base>/socket.io/ and joins /<instance>.
+      // Some versions also accept the apikey as a query param.
+      const socket = io(cfg.base, {
+        path: '/socket.io',
+        transports: ['websocket'],
+        query:  { apikey: cfg.apikey },
+        auth:   { apikey: cfg.apikey },
+        reconnection: true,
+        reconnectionDelay: 5000,
+        reconnectionDelayMax: 60000,
+        reconnectionAttempts: 5,  // give up after 5 tries — polling handles it
+      });
+
+      socket.on('connect', () => {
+        console.log('[Chat WS] Connected, id:', socket.id);
+        chatState._wsConnected = true;
+      });
+      socket.on('disconnect', reason => {
+        console.log('[Chat WS] Disconnected:', reason);
+        chatState._wsConnected = false;
+      });
+      socket.on('connect_error', err => {
+        console.warn('[Chat WS] Connection error:', err.message);
+        chatState._wsConnected = false;
+      });
+      socket.on('reconnect_failed', () => {
+        console.log('[Chat WS] WebSocket unavailable on this server — relying on polling only');
+        chatState._wsSocket = null;
+        chatState._wsConnected = false;
+        chatState._wsPermanentlyFailed = true; // stop retrying on tab switch
+        try { socket.disconnect(); } catch(e) {}
+      });
+
+      // ── MESSAGES_UPSERT: a new message was sent or received ────────────
+      socket.on('MESSAGES_UPSERT', async (payload) => {
+        try {
+          // Payload shape varies: may be { data: msg } or msg directly, or { data: [msg] }
+          const msgData = payload?.data ?? payload;
+          const msgs = Array.isArray(msgData) ? msgData : [msgData];
+
+          let needsListRender = false;
+          for (const msg of msgs) {
+            const rawJid = msg?.key?.remoteJid || msg?.remoteJid || '';
+            if (!rawJid || rawJid === 'status@broadcast') continue;
+            const jid = chatState.jidAliases?.[rawJid] || rawJid;
+
+            // Update chat list preview
+            const ts = ((msg.messageTimestamp || 0) * 1000) || Date.now();
+            const conv = chatState.conversations.find(c => c.id === jid);
+            if (conv) {
+              if (ts >= (conv.lastMsgTimestamp || 0)) {
+                conv.lastMsgTimestamp = ts;
+                conv.fromMe = msg.key?.fromMe ?? false;
+                // Extract text from common message types
+                const m = msg.message || {};
+                conv.lastMessage = m.conversation
+                  || m.extendedTextMessage?.text
+                  || m.imageMessage?.caption
+                  || m.videoMessage?.caption
+                  || m.documentMessage?.fileName
+                  || (m.audioMessage ? '🎵 Audio' : '')
+                  || (m.stickerMessage ? '🪄 Sticker' : '')
+                  || '[Media]';
+                if (jid !== chatState.activeJid && !conv.fromMe) {
+                  conv.unreadCount = (conv.unreadCount || 0) + 1;
+                }
+                needsListRender = true;
+              }
+            } else {
+              // Brand-new JID — trigger a delta sync so it appears in the list
+              // (don't suppress needsListRender — other msgs in this batch may still need it)
+              chatFetchDeltaConversations().catch(e => console.warn('[Chat WS] delta sync error:', e));
+            }
+
+            // If this is the currently open conversation, fetch latest messages immediately
+            if (jid === chatState.activeJid || rawJid === chatState.activeJid) {
+              await chatPollMessages();
+            }
+          }
+
+          if (needsListRender) {
+            _chatSortConvs(chatState.conversations);
+            chatRenderList();
+            chatUpdateUnreadBadge();
+          }
+        } catch (e) { console.warn('[Chat WS] MESSAGES_UPSERT handler error:', e); }
+      });
+
+      // ── CHATS_UPSERT: a chat was created or its metadata changed ───────
+      socket.on('CHATS_UPSERT', (payload) => {
+        try {
+          const items = Array.isArray(payload?.data) ? payload.data
+            : payload?.data ? [payload.data]
+            : Array.isArray(payload) ? payload : [];
+          if (!items.length) return;
+
+          const archivedJids = chatGetArchivedJids();
+          const existingById = {};
+          chatState.conversations.forEach(c => { existingById[c.id] = c; });
+          let changed = false;
+
+          items.forEach(raw => {
+            const rawJid = raw.remoteJid || raw.id || '';
+            if (!rawJid || rawJid === 'status@broadcast') return;
+            const jid = chatState.jidAliases?.[rawJid] || rawJid;
+            const parsed = _chatParseConv(raw, archivedJids.includes(rawJid));
+
+            const existing = existingById[jid];
+            if (existing) {
+              if ((parsed.lastMsgTimestamp || 0) >= (existing.lastMsgTimestamp || 0)) {
+                existing.lastMessage = parsed.lastMessage;
+                existing.lastMsgTimestamp = parsed.lastMsgTimestamp;
+                existing.fromMe = parsed.fromMe;
+                existing._lastMsgKey = parsed._lastMsgKey;
+              }
+              if (jid !== chatState.activeJid) existing.unreadCount = parsed.unreadCount;
+              if (parsed.name && !/^\d+$/.test(parsed.name) &&
+                  (!existing.name || /^\d+$/.test(existing.name))) existing.name = parsed.name;
+              if (parsed.profilePicUrl && !existing.profilePicUrl) existing.profilePicUrl = parsed.profilePicUrl;
+              changed = true;
+            } else {
+              chatState.conversations.push(parsed);
+              existingById[jid] = parsed;
+              changed = true;
+            }
+          });
+
+          if (changed) {
+            _chatSortConvs(chatState.conversations);
+            chatRenderList();
+            chatUpdateUnreadBadge();
+          }
+        } catch (e) { console.warn('[Chat WS] CHATS_UPSERT handler error:', e); }
+      });
+
+      // ── CHATS_UPDATE: unread count or other metadata changed ───────────
+      socket.on('CHATS_UPDATE', (payload) => {
+        try {
+          const items = Array.isArray(payload?.data) ? payload.data
+            : payload?.data ? [payload.data]
+            : Array.isArray(payload) ? payload : [];
+          if (!items.length) return;
+
+          let changed = false;
+          items.forEach(upd => {
+            const rawJid = upd.remoteJid || upd.id || '';
+            if (!rawJid) return;
+            const jid = chatState.jidAliases?.[rawJid] || rawJid;
+            const conv = chatState.conversations.find(c => c.id === jid);
+            if (!conv) return;
+            if (upd.unreadCount !== undefined && jid !== chatState.activeJid) {
+              conv.unreadCount = upd.unreadCount;
+            }
+            if (upd.name && !/^\d+$/.test(upd.name) &&
+                (!conv.name || /^\d+$/.test(conv.name))) conv.name = upd.name;
+            changed = true;
+          });
+
+          if (changed) { chatRenderList(); chatUpdateUnreadBadge(); }
+        } catch (e) { console.warn('[Chat WS] CHATS_UPDATE handler error:', e); }
+      });
+
+      // ── CHATS_DELETE: a chat was deleted ───────────────────────────────
+      socket.on('CHATS_DELETE', (payload) => {
+        try {
+          const items = Array.isArray(payload?.data) ? payload.data
+            : payload?.data ? [payload.data] : [];
+          if (!items.length) return;
+          const deleteSet = new Set(items.map(j =>
+            typeof j === 'string' ? j : (j.remoteJid || j.id || '')));
+          deleteSet.delete('');
+          if (!deleteSet.size) return;
+          const before = chatState.conversations.length;
+          chatState.conversations = chatState.conversations.filter(c => !deleteSet.has(c.id));
+          if (chatState.conversations.length !== before) {
+            chatRenderList();
+            chatUpdateUnreadBadge();
+          }
+        } catch (e) { console.warn('[Chat WS] CHATS_DELETE handler error:', e); }
+      });
+
+      chatState._wsSocket = socket;
+      console.log('[Chat WS] Socket registered, waiting for connect...');
+    } catch (e) {
+      console.warn('[Chat WS] Failed to create socket:', e);
+    }
+  }
+
+  function chatDestroyWebSocket() {
+    if (chatState._wsSocket) {
+      try { chatState._wsSocket.disconnect(); } catch(e) {}
+      chatState._wsSocket = null;
+    }
+    chatState._wsConnected = false;
   }
 
   function chatStartPolling() {
     if (chatState.chatListPollTimer) clearInterval(chatState.chatListPollTimer);
+    chatState._pollCount = 0;
     chatState.chatListPollTimer = setInterval(async () => {
       if (document.hidden) return; // don't poll when browser tab is not visible
-      await chatFetchConversations();
+      // Option 2: use delta sync (only fetch chats updated since last sync)
+      // Every 30 polls (~2.5 min) force a full fetch as a safety valve in case
+      // the delta filter silently returns empty for an unsupported filter.
+      chatState._pollCount = (chatState._pollCount || 0) + 1;
+      const forceFull = chatState._pollCount % 30 === 0;
+      await (forceFull ? chatFetchConversations() : chatFetchDeltaConversations());
       // If a conversation is currently open, keep its unread count at 0
       // (the API may lag behind the mark-as-read we already sent)
       if (chatState.activeJid) {
@@ -5181,6 +5730,9 @@
       chatRenderList();
       chatUpdateUnreadBadge();
     }, 5000);
+    // Option 4: connect WebSocket for real-time events (additive to polling)
+    // The polling remains active as safety net in case WS disconnects or misses events.
+    chatConnectWebSocket().catch(e => console.warn('[Chat WS] init error:', e));
   }
 
   // ── Open / close conversation ────────────────────────────────────────
@@ -5396,10 +5948,11 @@
       const allIds = new Set(chatState.allFetchedMessages.map(m => m.id));
       const newMsgs = fresh.filter(m => !existingIds.has(m.id));
       const newForAll = fresh.filter(m => !allIds.has(m.id));
-      // Update status of existing messages
+      // Update status of existing messages — track if anything actually changed
+      let statusChanged = false;
       fresh.forEach(fm => {
         const ex = chatState.messages.find(m => m.id === fm.id);
-        if (ex && ex.status !== fm.status) ex.status = fm.status;
+        if (ex && ex.status !== fm.status) { ex.status = fm.status; statusChanged = true; }
         const exAll = chatState.allFetchedMessages.find(m => m.id === fm.id);
         if (exAll && exAll.status !== fm.status) exAll.status = fm.status;
       });
@@ -5414,8 +5967,8 @@
         chatRenderMessages();
         chatScrollToBottom(true);
         chatMarkRead(jid);
-      } else {
-        // Just re-render for status updates
+      } else if (statusChanged) {
+        // Re-render only when a message status actually changed (e.g. sent→delivered→read)
         chatRenderMessages();
       }
     } finally {
