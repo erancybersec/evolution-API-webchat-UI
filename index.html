@@ -400,10 +400,12 @@
               <button onclick="chatCloseConversation()" class="p-1 hover:bg-gray-100 rounded-full mr-1 lg:hidden" title="Back">
                 <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
               </button>
-              <div id="chat-header-avatar" class="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-white font-bold text-sm shrink-0 overflow-hidden"></div>
-              <div class="flex-1 min-w-0">
-                <p id="chat-header-name" class="text-sm font-semibold text-gray-900 truncate"></p>
-                <p id="chat-header-status" class="text-xs text-gray-500 truncate"></p>
+              <div class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer" onclick="chatOpenContactInfo()" title="Contact info">
+                <div id="chat-header-avatar" class="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-white font-bold text-sm shrink-0 overflow-hidden"></div>
+                <div class="flex-1 min-w-0">
+                  <p id="chat-header-name" class="text-sm font-semibold text-gray-900 truncate"></p>
+                  <p id="chat-header-status" class="text-xs text-gray-500 truncate"></p>
+                </div>
               </div>
               <div class="flex items-center gap-1">
                 <button onclick="chatToggleSearch(true)" class="p-2 hover:bg-gray-100 rounded-full" title="Search messages">
@@ -443,25 +445,25 @@
               </button>
             </div>
             <!-- Input bar -->
-            <div id="chat-input-bar" class="bg-white px-4 py-3 flex items-end gap-2 border-t border-gray-200 shrink-0">
-              <button onclick="chatToggleEmoji()" class="p-2 hover:bg-gray-100 rounded-full shrink-0" title="Emoji">
-                <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <div id="chat-input-bar" class="bg-white px-3 py-2.5 flex items-end gap-1.5 border-t border-gray-200 shrink-0">
+              <button onclick="chatToggleEmoji()" class="w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full shrink-0 text-gray-500" title="Emoji">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
               </button>
               <div id="chat-emoji-panel" class="hidden absolute bottom-16 left-16 bg-white border border-gray-200 rounded-xl shadow-xl p-3 z-50 w-80">
                 <div class="emoji-picker flex flex-wrap"></div>
               </div>
-              <button onclick="chatAttachMedia()" class="p-2 hover:bg-gray-100 rounded-full shrink-0" title="Attach">
-                <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+              <button onclick="chatAttachMedia()" class="w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full shrink-0 text-gray-500" title="Attach">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
               </button>
               <input type="file" id="chat-file-input" class="hidden" onchange="chatOnFileSelected(this)"/>
               <div class="flex-1 relative">
-                <textarea id="chat-input" rows="1" placeholder="Type a message" class="w-full bg-gray-100 border-0 rounded-2xl px-4 py-2.5 text-sm resize-none max-h-32 overflow-y-auto" oninput="chatAutoResize(this); chatOnTyping()" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();chatSend()}" onpaste="chatOnPaste(event)"></textarea>
+                <textarea id="chat-input" rows="1" placeholder="Type a message" class="w-full bg-gray-100 border-0 rounded-2xl px-4 py-2.5 text-sm resize-none max-h-32 overflow-y-auto leading-5" oninput="chatAutoResize(this); chatOnTyping()" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();chatSend()}" onpaste="chatOnPaste(event)"></textarea>
               </div>
-              <button id="chat-send-btn" onclick="chatSend()" class="p-2.5 bg-[#25D366] hover:bg-[#1ebe5d] text-white rounded-full shrink-0" title="Send">
+              <button id="chat-send-btn" onclick="chatSend()" class="w-10 h-10 flex items-center justify-center bg-[#25D366] hover:bg-[#1ebe5d] text-white rounded-full shrink-0" title="Send">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/></svg>
               </button>
-              <button onclick="chatToggleSchedule()" class="p-2.5 hover:bg-gray-100 rounded-full shrink-0 text-gray-500" title="Schedule send">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <button onclick="chatToggleSchedule()" class="w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full shrink-0 text-gray-500" title="Schedule send">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
               </button>
             </div>
             <!-- Schedule send panel -->
@@ -484,6 +486,16 @@
                 <span class="text-[15px] font-medium text-gray-800">Poll details</span>
               </div>
               <div id="poll-details-content" class="flex-1 overflow-y-auto px-5 py-4"></div>
+            </div>
+            <!-- Contact / group info panel (slides in over messages) -->
+            <div id="chat-contact-panel" class="hidden absolute inset-0 bg-white z-40 flex-col">
+              <div class="flex items-center gap-3 px-4 py-3 border-b border-gray-200 shrink-0">
+                <button onclick="chatCloseContactInfo()" class="p-1 hover:bg-gray-100 rounded-full">
+                  <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+                <span class="text-[15px] font-medium text-gray-800">Contact info</span>
+              </div>
+              <div id="chat-contact-content" class="flex-1 overflow-y-auto"></div>
             </div>
           </div>
         </div>
@@ -5220,17 +5232,118 @@
   }
 
   // ── Resolve contact name (phone-saved name > pushName > number) ─────
+  // Single source of truth for a chat's display name (used by list, header,
+  // quotes, everywhere) so they never disagree. Rejects numeric/JID-ish junk.
+  function chatGoodName(s) { return s && !/^\d+$/.test(s) && !String(s).includes('@') ? s : ''; }
   function chatResolveName(jid) {
     if (!jid) return 'Unknown';
+    const conv = chatState.conversations.find(x => x.id === jid);
+    if (chatIsGroup(jid)) {
+      // Groups: only ever the subject — never a sender's pushName.
+      const v = chatState._verifiedGroupNames && chatState._verifiedGroupNames[jid];
+      return chatGoodName(v) || chatGoodName(conv && conv.name) || chatGoodName(conv && conv.subject) || 'Group';
+    }
     const c = chatState.contacts[jid];
     if (c) {
-      if (c.savedName) return c.savedName;
-      if (c.displayName) return c.displayName;
-      if (c.pushName) return c.pushName;
+      const fromContact = c.savedName || chatGoodName(c.displayName) || chatGoodName(c.pushName);
+      if (fromContact) return fromContact;
     }
-    const conv = chatState.conversations.find(x => x.id === jid);
-    if (conv && conv.name) return conv.name;
-    return chatExtractNumber(jid);
+    return chatGoodName(conv && conv.name) || chatPrettyNumber(jid);
+  }
+  function chatPrettyNumber(jid) {
+    const n = chatExtractNumber(jid);
+    if (!n) return 'Unknown';
+    if (jid && jid.endsWith('@lid')) return 'Chat'; // LID has no real phone number
+    return '+' + n;
+  }
+
+  // ── Contact / group info panel ───────────────────────────────────────
+  async function chatOpenContactInfo() {
+    const jid = chatState.activeJid;
+    if (!jid) return;
+    const panel = document.getElementById('chat-contact-panel');
+    const content = document.getElementById('chat-contact-content');
+    if (!panel || !content) return;
+    const isGroup = chatIsGroup(jid);
+    const name = chatResolveName(jid);
+    const number = isGroup ? '' : chatExtractNumber(jid);
+    const contact = chatState.contacts[jid] || {};
+    const conv = chatState.conversations.find(c => c.id === jid) || {};
+    const rawPic = contact.profilePicUrl || conv.profilePicUrl || '';
+    const picUrl = rawPic && !chatState._failedPicUrls.has(rawPic) ? rawPic : '';
+    const color = chatAvatarColor(jid);
+    const inits = chatEsc(chatInitials(name));
+    const avatarBig = picUrl
+      ? `<img src="${chatEsc(picUrl)}" class="w-28 h-28 rounded-full object-cover mx-auto" onerror="chatClearFailedPic(this.src);this.style.display='none';this.nextElementSibling.style.display='flex'"/><div class="w-28 h-28 rounded-full items-center justify-center text-white font-bold text-3xl mx-auto" style="display:none;background:${color}">${inits}</div>`
+      : `<div class="w-28 h-28 rounded-full flex items-center justify-center text-white font-bold text-3xl mx-auto" style="background:${color}">${inits}</div>`;
+    chatState._blocked = chatState._blocked || {};
+    const blocked = !!chatState._blocked[jid];
+    const ic = (d) => `<svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${d}"/></svg>`;
+    content.innerHTML = `
+      <div class="px-6 py-7 text-center border-b border-gray-100">
+        ${avatarBig}
+        <p dir="auto" class="mt-4 text-xl font-semibold text-gray-900">${chatEsc(name)}</p>
+        <p class="text-sm text-gray-500 mt-1">${isGroup ? 'Group' : chatEsc(chatPrettyNumber(jid))}</p>
+        <p id="chat-contact-about" dir="auto" class="text-sm text-gray-400 mt-2 italic"></p>
+      </div>
+      <div class="px-3 py-3">
+        <button onclick="chatCloseContactInfo();var i=document.getElementById('chat-input');if(i)i.focus()" class="w-full text-left px-3 py-2.5 rounded-lg hover:bg-gray-50 flex items-center gap-3 text-sm text-gray-700">
+          ${ic('M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z')} Message
+        </button>
+        ${isGroup ? '' : `
+        <button onclick="chatMarkUnreadFromInfo()" class="w-full text-left px-3 py-2.5 rounded-lg hover:bg-gray-50 flex items-center gap-3 text-sm text-gray-700">
+          ${ic('M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9')} Mark as unread
+        </button>
+        <button id="chat-block-btn" onclick="chatToggleBlock()" class="w-full text-left px-3 py-2.5 rounded-lg hover:bg-red-50 flex items-center gap-3 text-sm text-red-600">
+          ${ic('M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636')} ${blocked ? 'Unblock' : 'Block'} contact
+        </button>`}
+      </div>
+      ${isGroup ? '<div class="px-5 py-3 border-t border-gray-100"><p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Participants</p><div id="chat-group-participants" class="text-sm text-gray-600">Loading…</div></div>' : ''}
+    `;
+    panel.classList.remove('hidden');
+    panel.style.display = 'flex';
+    // Best-effort enrichment
+    try {
+      const cfg = getCfg();
+      if (!isGroup) {
+        const prof = await chatApiCall(`/chat/fetchProfile/${cfg.instance}`, { number });
+        let about = prof && (prof.status?.status || (typeof prof.status === 'string' ? prof.status : '') || prof.description || prof.about);
+        const el = document.getElementById('chat-contact-about');
+        if (el && about && typeof about === 'string') el.textContent = about;
+      } else {
+        const info = await chatApiCall(`/group/findGroupInfos/${cfg.instance}?groupJid=${encodeURIComponent(jid)}`, null, 'GET');
+        const parts = (info && (info.participants || info.size)) || [];
+        const el = document.getElementById('chat-group-participants');
+        if (el) el.textContent = (Array.isArray(parts) ? parts.length : parts) + ' participants';
+      }
+    } catch (e) { /* enrichment is optional */ }
+  }
+  function chatCloseContactInfo() {
+    const panel = document.getElementById('chat-contact-panel');
+    if (panel) { panel.classList.add('hidden'); panel.style.display = ''; }
+  }
+  async function chatMarkUnreadFromInfo() {
+    const jid = chatState.activeJid; if (!jid) return;
+    const last = (chatState.messages || []).slice(-1)[0];
+    try {
+      await chatApiCall(`/chat/markChatUnread/${getCfg().instance}`, {
+        chat: jid,
+        lastMessage: last ? { key: { id: last.id, fromMe: !!last.fromMe, remoteJid: jid } } : undefined,
+      });
+      chatShowToast('Marked as unread', 'info');
+    } catch (e) { chatShowToast('Could not mark unread', 'error'); }
+    chatCloseContactInfo();
+  }
+  async function chatToggleBlock() {
+    const jid = chatState.activeJid; if (!jid || chatIsGroup(jid)) return;
+    chatState._blocked = chatState._blocked || {};
+    const willBlock = !chatState._blocked[jid];
+    try {
+      await chatApiCall(`/message/updateBlockStatus/${getCfg().instance}`, { number: chatExtractNumber(jid), status: willBlock ? 'block' : 'unblock' });
+      chatState._blocked[jid] = willBlock;
+      chatShowToast(willBlock ? 'Contact blocked' : 'Contact unblocked', 'info');
+      chatOpenContactInfo(); // refresh button label
+    } catch (e) { chatShowToast('Block action failed', 'error'); }
   }
 
   // ── Filter tab handler ──────────────────────────────────────────────
@@ -5269,7 +5382,7 @@
 
     // Apply search
     if (q) {
-      convs = convs.filter(c => (c.name||'').toLowerCase().includes(q) || chatExtractNumber(c.id).includes(q));
+      convs = convs.filter(c => chatResolveName(c.id).toLowerCase().includes(q) || chatExtractNumber(c.id).includes(q));
     }
 
     if (!convs.length) {
@@ -5284,7 +5397,8 @@
   function chatRenderListItem(c) {
     const isActive = chatState.activeJid === c.id;
     const color = chatAvatarColor(c.id);
-    const initials = chatInitials(c.name);
+    const dispName = chatResolveName(c.id);
+    const initials = chatInitials(dispName);
     const safePicUrl = c.profilePicUrl && !chatState._failedPicUrls.has(c.profilePicUrl) ? c.profilePicUrl : '';
     const avatar = safePicUrl
       ? `<img src="${safePicUrl}" class="w-12 h-12 rounded-full object-cover" onerror="chatClearFailedPic('${safePicUrl}');this.style.display='none';this.nextElementSibling.style.display='flex'"/><div class="w-12 h-12 rounded-full items-center justify-center text-white font-bold text-sm shrink-0" style="display:none;background:${color}">${initials}</div>`
@@ -5296,7 +5410,7 @@
       <div class="shrink-0 relative">${avatar}</div>
       <div class="flex-1 min-w-0">
         <div class="flex items-center justify-between">
-          <p dir="auto" class="text-sm font-medium text-gray-900 truncate">${chatEsc(c.name)}</p>
+          <p dir="auto" class="text-sm font-medium text-gray-900 truncate">${chatEsc(dispName)}</p>
           <span class="text-xs ${c.unreadCount>0?'text-[#25D366] font-semibold':'text-gray-400'} shrink-0 ml-2">${chatFormatListDate(c.lastMsgTimestamp)}</span>
         </div>
         <div class="flex items-center justify-between mt-0.5">
@@ -5779,6 +5893,7 @@
   // ── Open / close conversation ────────────────────────────────────────
   async function chatOpenConversation(jid) {
     document.getElementById('chat-msg-info-popup')?.remove(); // close stale popup on chat switch
+    if (typeof chatCloseContactInfo === 'function') chatCloseContactInfo(); // close info panel on chat switch
     document.querySelectorAll('.chat-delete-modal').forEach(e => e.remove()); // cancel any pending delete
     chatState.activeJid = jid;
     chatState.allFetchedMessages = [];
@@ -5800,7 +5915,7 @@
     // Update header
     const name = chatResolveName(jid);
     document.getElementById('chat-header-name').textContent = name;
-    document.getElementById('chat-header-status').textContent = chatIsGroup(jid) ? 'Group' : (jid.endsWith('@lid') ? 'Chat' : chatExtractNumber(jid));
+    document.getElementById('chat-header-status').textContent = chatIsGroup(jid) ? 'Group' : chatPrettyNumber(jid);
     const avatarEl = document.getElementById('chat-header-avatar');
     const contact = chatState.contacts[jid];
     const conv = chatState.conversations.find(c => c.id === jid);
@@ -5973,6 +6088,7 @@
     document.getElementById('chat-empty-state').style.display = 'flex';
     document.getElementById('tab-chat')?.classList.remove('chat-thread-open'); // mobile: back to list
     if (typeof chatToggleSearch === 'function') chatToggleSearch(false);
+    if (typeof chatCloseContactInfo === 'function') chatCloseContactInfo();
     chatRenderList();
   }
 
