@@ -5269,12 +5269,23 @@
       const v = chatState._verifiedGroupNames && chatState._verifiedGroupNames[jid];
       return chatGoodName(v) || chatGoodName(conv && conv.name) || chatGoodName(conv && conv.subject) || 'Group';
     }
-    const c = chatState.contacts[jid];
-    if (c) {
-      const fromContact = c.savedName || chatGoodName(c.displayName) || chatGoodName(c.pushName);
-      if (fromContact) return fromContact;
+    // Check this jid AND any aliased partner (@lid ↔ @s.whatsapp.net) for a name —
+    // contacts are keyed by the phone jid, but a chat may be a @lid jid.
+    const cands = new Set([jid]);
+    const al = chatState.jidAliases || {};
+    if (al[jid]) cands.add(al[jid]);
+    for (const [sec, pri] of Object.entries(al)) if (pri === jid) cands.add(sec);
+    if (conv && conv.altJid) cands.add(conv.altJid);
+    for (const cj of cands) {
+      const c = chatState.contacts[cj];
+      if (c) {
+        const n = c.savedName || chatGoodName(c.displayName) || chatGoodName(c.pushName);
+        if (n) return n;
+      }
     }
-    return chatGoodName(conv && conv.name) || chatPrettyNumber(jid);
+    if (chatGoodName(conv && conv.name)) return conv.name;
+    // Last resort: a real phone number if we can find one — never the word "Chat".
+    return chatDisplayNumber(jid) || 'WhatsApp user';
   }
   function chatPrettyNumber(jid) {
     const n = chatExtractNumber(jid);
