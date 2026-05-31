@@ -4,6 +4,58 @@ All notable changes to this project are documented here.
 
 ---
 
+## [1.4.0] — 2026-06-01
+
+A major overhaul of the **Chat Inbox** — mobile-ready, with media, voice, and WhatsApp-style interactions.
+
+### New Features
+
+#### Mobile / phone support
+- Fully responsive chat layout: the conversation list goes full-screen and swaps to the thread when a chat is opened; a back arrow returns to the list.
+- App navigation collapses into a slide-in drawer (hamburger) on phones.
+- Uses dynamic viewport height (`100dvh`) so the chat header and message composer stay **pinned** — only the message list scrolls.
+
+#### Media
+- **View received media** — images, voice notes, video, stickers and documents are fetched on demand via Evolution's `getBase64FromMediaMessage` and rendered/played in-app (received media arrives as encrypted URLs the browser can't open directly). Images & voice auto-load; video/documents load on tap; results cached.
+- **Media preview + caption** — picking or pasting an image/video/file opens a full-screen preview with a caption box before sending.
+
+#### Voice notes
+- **Record & send voice notes** in the browser (MediaRecorder) with a recording bar (timer, cancel, send).
+
+#### Messaging interactions
+- **Swipe-to-reply** — drag a message bubble to the right to quote-reply it (touch), with a reply-arrow affordance.
+- **Edit sent messages** (within ~15 min) via `updateMessage`, shown with an "edited" marker.
+- **Quick replies** (WhatsApp Business style) — type `/` to filter and insert a saved canned message; add/delete them in a built-in manager.
+- **Rich-text rendering** in bubbles: *bold*, _italic_, ~strikethrough~, ```monospace```.
+- **Inline message search** within a chat (replaces the old prompt) with next/previous match navigation.
+
+#### Contacts
+- **Contact / group info panel** — tap the chat header for avatar, name, number, and about/business info, with **Message**, **Mark as unread**, and **Block** actions; group panel shows participant count.
+- **Live presence** — the header shows **typing… / recording… / online** from real-time presence events.
+
+### Improvements & Fixes
+- **Name resolution** unified across the list, header, search and quotes: groups always show their subject, contacts show their saved/push name, and `@lid` (privacy) chats resolve to the real **+E.164** number via the LID↔phone alias map — no more stray "Chat" / "WhatsApp user" where a name is known.
+- **Input bar** redesigned with uniform, symmetric round controls.
+- **Group replies** quote the original sender's name (not the group name).
+- **Performance** — the chat list renders **instantly from cache** and refreshes only new/changed chats in the background (delta), instead of re-fetching every chat with a "Loading chats…" wait on each open. Contacts/aliases load before the first paint, and the cache is kept clean (deduped, stale entries removed).
+- **Fixed the "double-load / reshuffle" on open** — conversation timestamps were stored as strings, so the sort silently produced `NaN` and the cached list rendered in the wrong order before the live data re-sorted it. Timestamps are now numeric, so the cached render matches live → a single, static list.
+- **Voice send fixed** — recorded audio is sent as raw base64 (the data-URL prefix broke Evolution's decoder).
+- The hosting server now sends `Cache-Control: no-cache` so new builds are picked up automatically.
+
+---
+
+## [1.3.0] — 2026-05-31
+
+### New Features
+- **Real-time via WebSocket** — connects to Evolution's Socket.IO and handles `MESSAGES_UPSERT`, `CHATS_UPSERT` / `CHATS_UPDATE` / `CHATS_DELETE` in real time, with graceful fallback to polling.
+- **Delta sync** — polls only conversations changed since the last sync (`updatedAt` filter), with automatic fallback to a full fetch when the filter is unsupported.
+
+### Fixes
+- JID de-duplication (LID ↔ phone) so the same contact no longer appears twice.
+- Workaround for Evolution bug #2426 (contact name blanked on sent messages).
+
+---
+
 ## [1.2.0] — 2026-04-10
 
 ### Improvements

@@ -2,7 +2,7 @@
 
 A browser-based WhatsApp management interface built on top of [Evolution API v2](https://github.com/EvolutionAPI/evolution-api). No installation, no Node.js, no build step — just open `index.html`.
 
-**Current version: [v1.2.0](CHANGELOG.md)**
+**Current version: [v1.4.0](CHANGELOG.md)**
 
 ---
 
