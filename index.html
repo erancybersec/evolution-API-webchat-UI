@@ -5668,12 +5668,25 @@
       const cachedContacts = await chatDbGetAll('chat_contacts');
       cachedContacts.forEach(c => { chatState.contacts[c.id] = c; });
     } catch (e) { console.warn('chatInit cache load error:', e); }
-    // Fetch fresh data
-    await chatFetchContacts();
-    chatSetLoadStatus('Loading chats...');
-    await chatFetchConversations();
-    chatRenderList();
-    chatUpdateUnreadBadge();
+    // Fetch fresh data.
+    const haveCache = chatState.conversations.length > 0;
+    const haveSync = +(localStorage.getItem('chat_lastSyncAt') || 0) > 0;
+    if (haveCache && haveSync) {
+      // Returning visit: chats are already on screen from cache. Don't show a
+      // "Loading chats..." banner or re-fetch everything — just pull the NEW /
+      // changed chats quietly (delta) and refresh contacts in the background.
+      chatFetchContacts().then(() => chatRenderList()).catch(() => {});
+      chatFetchDeltaConversations()
+        .then(() => { chatRenderList(); chatUpdateUnreadBadge(); })
+        .catch(() => {});
+    } else {
+      // First time (no cache yet): do the full load with a status indicator.
+      await chatFetchContacts();
+      chatSetLoadStatus('Loading chats...');
+      await chatFetchConversations();
+      chatRenderList();
+      chatUpdateUnreadBadge();
+    }
     chatStartPolling();
   }
 
