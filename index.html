@@ -6799,6 +6799,70 @@
     bar.style.display = 'none';
   }
 
+  // ── Swipe-to-reply (WhatsApp-style): drag a message bubble right to reply ──
+  (function () {
+    const THRESH = 52, MAX = 84;
+    let sw = null;
+    function swIcon() {
+      let i = document.getElementById('chat-swipe-icon');
+      if (!i) {
+        i = document.createElement('div');
+        i.id = 'chat-swipe-icon';
+        i.style.cssText = 'position:fixed;z-index:30;width:34px;height:34px;border-radius:50%;background:#fff;box-shadow:0 1px 5px rgba(0,0,0,.22);display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0;color:#9ca3af';
+        i.innerHTML = '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a5 5 0 015 5v2M3 10l4-4M3 10l4 4"/></svg>';
+        document.body.appendChild(i);
+      }
+      i.style.display = 'flex';
+      return i;
+    }
+    function hideIcon() { const i = document.getElementById('chat-swipe-icon'); if (i) { i.style.opacity = '0'; i.style.display = 'none'; } }
+    function start(e) {
+      if (chatState.selectMode) return;
+      const t = e.touches ? e.touches[0] : e;
+      const row = e.target.closest && e.target.closest('#chat-messages [data-msg-id]');
+      if (!row || !row.dataset.msgId) return;
+      if (e.target.closest('audio,video,a,button,input,textarea')) return; // don't hijack controls
+      sw = { row, id: row.dataset.msgId, x0: t.clientX, y0: t.clientY, dx: 0, active: false };
+      row.style.transition = 'none';
+    }
+    function move(e) {
+      if (!sw) return;
+      const t = e.touches ? e.touches[0] : e;
+      const dx = t.clientX - sw.x0, dy = t.clientY - sw.y0;
+      if (!sw.active) {
+        if (Math.abs(dx) < 8) return;
+        if (Math.abs(dx) <= Math.abs(dy)) { sw = null; return; } // vertical → let it scroll
+        sw.active = true; swIcon();
+      }
+      if (e.cancelable) e.preventDefault();
+      sw.dx = Math.max(0, Math.min(dx, MAX));
+      sw.row.style.transform = 'translateX(' + sw.dx + 'px)';
+      const icon = document.getElementById('chat-swipe-icon');
+      if (icon) {
+        const r = sw.row.getBoundingClientRect();
+        const p = Math.min(1, sw.dx / THRESH);
+        icon.style.top = (r.top + r.height / 2 - 17) + 'px';
+        icon.style.left = (r.left + 4) + 'px';
+        icon.style.opacity = String(p);
+        icon.style.transform = 'scale(' + (0.5 + 0.5 * p) + ')';
+        icon.style.color = sw.dx >= THRESH ? '#25D366' : '#9ca3af';
+      }
+    }
+    function end() {
+      if (!sw) return;
+      const fire = sw.active && sw.dx >= THRESH;
+      sw.row.style.transition = 'transform .18s ease';
+      sw.row.style.transform = '';
+      hideIcon();
+      const id = sw.id; sw = null;
+      if (fire && typeof chatReplyTo === 'function') chatReplyTo(id);
+    }
+    document.addEventListener('touchstart', start, { passive: true });
+    document.addEventListener('touchmove', move, { passive: false });
+    document.addEventListener('touchend', end);
+    document.addEventListener('touchcancel', end);
+  })();
+
   // ── Reactions ────────────────────────────────────────────────────────
   const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
   function chatReactTo(msgId) {
