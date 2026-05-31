@@ -134,6 +134,12 @@
       #chat-thread-panel { position:absolute; inset:0; display:none; }
       #tab-chat.chat-thread-open #chat-list-panel { display:none; }
       #tab-chat.chat-thread-open #chat-thread-panel { display:flex; }
+      /* keep the chat header (back arrow + search) always visible: constrain
+         the thread so only the message list scrolls, never the header */
+      #chat-thread-panel { height:100%; }
+      #chat-active { overflow:hidden; height:100%; }
+      #chat-header { position:sticky; top:0; z-index:20; }
+      #chat-messages { min-height:0; }
       #chat-messages { padding-left:10px !important; padding-right:10px !important; }
       .chat-bubble-out, .chat-bubble-in, .max-w-\[65\%\] { max-width:85% !important; }
       #chat-emoji-panel { left:8px !important; right:8px !important; width:auto !important; }
