@@ -459,11 +459,26 @@
               <div class="flex-1 relative">
                 <textarea id="chat-input" rows="1" placeholder="Type a message" class="w-full bg-gray-100 border-0 rounded-2xl px-4 py-2.5 text-sm resize-none max-h-32 overflow-y-auto leading-5" oninput="chatAutoResize(this); chatOnTyping()" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();chatSend()}" onpaste="chatOnPaste(event)"></textarea>
               </div>
+              <button id="chat-mic-btn" onclick="chatToggleVoiceRecord()" class="w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full shrink-0 text-gray-500" title="Record voice">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-14 0m7 7v3m-4 0h8M12 3a3 3 0 00-3 3v5a3 3 0 006 0V6a3 3 0 00-3-3z"/></svg>
+              </button>
               <button id="chat-send-btn" onclick="chatSend()" class="w-10 h-10 flex items-center justify-center bg-[#25D366] hover:bg-[#1ebe5d] text-white rounded-full shrink-0" title="Send">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/></svg>
               </button>
               <button onclick="chatToggleSchedule()" class="w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full shrink-0 text-gray-500" title="Schedule send">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              </button>
+            </div>
+            <!-- Voice recording bar -->
+            <div id="chat-recording-bar" class="hidden bg-white px-4 py-3 items-center gap-3 border-t border-gray-200 shrink-0">
+              <button onclick="chatCancelVoiceRecord()" class="w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full shrink-0 text-red-500" title="Cancel">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              </button>
+              <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shrink-0"></span>
+              <span id="chat-record-timer" class="text-sm text-gray-700 tabular-nums">0:00</span>
+              <span class="flex-1 text-sm text-gray-400 truncate">Recording voice…</span>
+              <button onclick="chatSendVoiceRecord()" class="w-10 h-10 flex items-center justify-center bg-[#25D366] hover:bg-[#1ebe5d] text-white rounded-full shrink-0" title="Send voice note">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/></svg>
               </button>
             </div>
             <!-- Schedule send panel -->
@@ -6244,6 +6259,74 @@
       html += chatRenderBubble(m, pollVoteMap, reactionMap);
     });
     el.innerHTML = html;
+    chatHydrateMedia();
+  }
+
+  // ── Media: received media arrives as an encrypted .enc URL the browser
+  // can't render. Fetch decrypted bytes on demand via Evolution and cache
+  // them as a data: URL on the message (+ IndexedDB). Images/voice auto-load;
+  // video/documents load on tap (they can be large). ──────────────────────
+  function chatMediaIsReady(m) { return typeof m.mediaUrl === 'string' && m.mediaUrl.startsWith('data:'); }
+  function chatMediaFinalHtml(m) {
+    const url = m.mediaUrl;
+    if (m.type === 'image')   return `<img src="${url}" data-src="${chatEsc(url)}" class="rounded-md max-w-full cursor-pointer" onclick="chatOpenLightbox(this.dataset.src)" style="max-height:300px"/>`;
+    if (m.type === 'sticker') return `<img src="${url}" class="max-w-[150px]"/>`;
+    if (m.type === 'video')   return `<video src="${url}" controls class="rounded-md max-w-full" style="max-height:300px"></video>`;
+    if (m.type === 'audio')   return `<audio src="${url}" controls class="max-w-full" style="height:42px"></audio>`;
+    if (m.type === 'document')return `<a href="${url}" download="${chatEsc(m.fileName||'document')}" class="flex items-center gap-2 text-blue-600 hover:underline py-1"><svg class="w-8 h-8 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg><span class="text-sm truncate">${chatEsc(m.fileName||'Document')}</span></a>`;
+    return '';
+  }
+  function chatRenderMediaContent(m) {
+    const id = chatEsc(m.id);
+    if (chatMediaIsReady(m)) return `<div data-media-id="${id}">${chatMediaFinalHtml(m)}</div>`;
+    const auto = (m.type === 'image' || m.type === 'audio' || m.type === 'sticker');
+    let ph;
+    if (m.type === 'image' || m.type === 'sticker') {
+      const thumb = m.thumbBase64 ? `data:image/jpeg;base64,${m.thumbBase64}` : '';
+      ph = thumb
+        ? `<img src="${thumb}" class="rounded-md max-w-full opacity-60" style="max-height:300px"/>`
+        : `<div class="flex items-center justify-center rounded-md bg-black/5" style="width:200px;height:150px"><svg class="w-8 h-8 text-gray-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M4 6h16v12H4z"/></svg></div>`;
+    } else if (m.type === 'audio') {
+      ph = `<div class="flex items-center gap-2 text-gray-500 text-sm py-2"><svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg><span class="chat-media-status">Loading voice…</span></div>`;
+    } else {
+      const label = m.type === 'video' ? '▶ Load video' : ('⬇ ' + chatEsc(m.fileName || 'Download file'));
+      ph = `<button onclick="chatEnsureMedia('${id}')" class="flex items-center gap-2 text-blue-600 hover:underline text-sm py-2"><span class="chat-media-status">${label}</span></button>`;
+    }
+    return `<div data-media-id="${id}" data-media-auto="${auto ? 1 : 0}">${ph}</div>`;
+  }
+  function chatHydrateMedia() {
+    document.querySelectorAll('#chat-messages [data-media-auto="1"]').forEach(w => {
+      const id = w.getAttribute('data-media-id');
+      if (id) chatEnsureMedia(id);
+    });
+  }
+  async function chatEnsureMedia(id) {
+    chatState._mediaFetching = chatState._mediaFetching || new Set();
+    const m = (chatState.messages || []).find(x => x.id === id) || (chatState.allFetchedMessages || []).find(x => x.id === id);
+    if (!m) return;
+    const wrap = document.querySelector(`#chat-messages [data-media-id="${id}"]`);
+    if (chatMediaIsReady(m)) { if (wrap) wrap.innerHTML = chatMediaFinalHtml(m); return; }
+    if (chatState._mediaFetching.has(id)) return;
+    chatState._mediaFetching.add(id);
+    try {
+      const cfg = getCfg();
+      const resp = await chatApiCall(`/chat/getBase64FromMediaMessage/${cfg.instance}`,
+        { message: { key: { id: m.id, remoteJid: m.remoteJid, fromMe: !!m.fromMe } }, convertToMp4: false });
+      const b64 = resp && (resp.base64 || resp.media || (resp.data && resp.data.base64));
+      const mime = (resp && (resp.mimetype || resp.mediaType)) || m.mimetype || 'application/octet-stream';
+      if (b64) {
+        m.mediaUrl = String(b64).startsWith('data:') ? b64 : `data:${mime};base64,${b64}`;
+        chatDbPut('chat_messages', m).catch(() => {});
+        const w2 = document.querySelector(`#chat-messages [data-media-id="${id}"]`);
+        if (w2) w2.innerHTML = chatMediaFinalHtml(m);
+      } else {
+        const st = wrap && wrap.querySelector('.chat-media-status'); if (st) st.textContent = 'Media unavailable';
+      }
+    } catch (e) {
+      const st = wrap && wrap.querySelector('.chat-media-status'); if (st) st.textContent = 'Failed to load — tap to retry';
+    } finally {
+      chatState._mediaFetching.delete(id);
+    }
   }
 
   function chatRenderBubble(m, pollVoteMap, reactionMap) {
@@ -6288,32 +6371,16 @@
         contentHtml = `<p dir="auto" class="text-sm text-gray-900 whitespace-pre-wrap break-words">${chatFormatText(chatLinkify(chatEsc(m.text)))}</p>`;
         break;
       case 'image':
-        const imgSrc = m.mediaUrl || (m.thumbBase64 ? `data:image/jpeg;base64,${m.thumbBase64}` : '');
-        contentHtml = imgSrc
-          ? `<img src="${imgSrc}" data-src="${chatEsc(imgSrc)}" class="rounded-md max-w-full cursor-pointer mb-1" onclick="chatOpenLightbox(this.dataset.src)" loading="lazy" style="max-height:300px"/>`
-          : '';
-        if (m.caption) contentHtml += `<p dir="auto" class="text-sm text-gray-900">${chatFormatText(chatLinkify(chatEsc(m.caption)))}</p>`;
-        break;
+      case 'sticker':
       case 'video':
-        contentHtml = m.mediaUrl
-          ? `<video src="${m.mediaUrl}" controls class="rounded-md max-w-full mb-1" style="max-height:300px"></video>`
-          : '<p class="text-sm text-gray-500 italic">🎥 Video</p>';
-        if (m.caption) contentHtml += `<p dir="auto" class="text-sm text-gray-900">${chatFormatText(chatLinkify(chatEsc(m.caption)))}</p>`;
-        break;
       case 'audio':
-        contentHtml = m.mediaUrl
-          ? `<audio src="${m.mediaUrl}" controls class="max-w-full"></audio>`
-          : '<p class="text-sm text-gray-500 italic">🎤 Audio</p>';
+        contentHtml = chatRenderMediaContent(m);
+        if (m.caption && (m.type === 'image' || m.type === 'video'))
+          contentHtml += `<p dir="auto" class="text-sm text-gray-900 mt-1">${chatFormatText(chatLinkify(chatEsc(m.caption)))}</p>`;
         break;
       case 'document':
-        contentHtml = `<a href="${m.mediaUrl||'#'}" target="_blank" class="flex items-center gap-2 text-blue-600 hover:underline py-1">
-          <svg class="w-8 h-8 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-          <span class="text-sm truncate">${chatEsc(m.fileName||'Document')}</span>
-        </a>`;
-        if (m.caption) contentHtml += `<p dir="auto" class="text-sm text-gray-900">${chatFormatText(chatLinkify(chatEsc(m.caption)))}</p>`;
-        break;
-      case 'sticker':
-        contentHtml = m.mediaUrl ? `<img src="${m.mediaUrl}" class="max-w-[150px]" loading="lazy"/>` : '<p class="text-2xl">🏷</p>';
+        contentHtml = chatRenderMediaContent(m);
+        if (m.caption) contentHtml += `<p dir="auto" class="text-sm text-gray-900 mt-1">${chatFormatText(chatLinkify(chatEsc(m.caption)))}</p>`;
         break;
       case 'location': {
         const coords = (m.text || '').replace('📍 ', '').split(',').map(c => c.trim());
@@ -7064,6 +7131,64 @@
         return;
       }
     }
+  }
+
+  // ── Voice note recording (MediaRecorder → sendWhatsAppAudio) ──────────
+  let _waRec = { rec: null, chunks: [], start: 0, timer: null, stream: null };
+  async function chatToggleVoiceRecord() {
+    if (!chatState.activeJid) return;
+    if (_waRec.rec && _waRec.rec.state === 'recording') return;
+    if (!navigator.mediaDevices || !window.MediaRecorder) { chatShowToast('Recording not supported here', 'error'); return; }
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+    catch (e) { chatShowToast('Microphone permission denied', 'error'); return; }
+    const pick = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/webm', 'audio/mp4'].find(t => MediaRecorder.isTypeSupported(t));
+    _waRec = { rec: new MediaRecorder(stream, pick ? { mimeType: pick } : undefined), chunks: [], start: Date.now(), timer: null, stream };
+    _waRec.rec.ondataavailable = e => { if (e.data && e.data.size) _waRec.chunks.push(e.data); };
+    _waRec.rec.start();
+    document.getElementById('chat-input-bar').style.display = 'none';
+    const bar = document.getElementById('chat-recording-bar'); bar.classList.remove('hidden'); bar.style.display = 'flex';
+    _waRec.timer = setInterval(() => {
+      const s = Math.floor((Date.now() - _waRec.start) / 1000);
+      const t = document.getElementById('chat-record-timer'); if (t) t.textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+    }, 250);
+  }
+  function _chatStopRec(cb) {
+    const r = _waRec.rec;
+    if (!r) { cb && cb(null); return; }
+    r.onstop = () => { cb && cb(new Blob(_waRec.chunks, { type: r.mimeType || 'audio/webm' })); };
+    try { r.stop(); } catch (e) {}
+    if (_waRec.stream) _waRec.stream.getTracks().forEach(t => t.stop());
+    if (_waRec.timer) clearInterval(_waRec.timer);
+    const bar = document.getElementById('chat-recording-bar'); if (bar) { bar.style.display = 'none'; bar.classList.add('hidden'); }
+    const ib = document.getElementById('chat-input-bar'); if (ib) ib.style.display = '';
+    _waRec.rec = null; _waRec.stream = null;
+  }
+  function chatCancelVoiceRecord() { _chatStopRec(() => { _waRec.chunks = []; }); }
+  function chatSendVoiceRecord() {
+    _chatStopRec(async (blob) => {
+      if (!blob || !blob.size) { chatShowToast('Nothing recorded', 'error'); return; }
+      const dataUrl = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); });
+      await chatSendRecordedAudio(dataUrl, blob.type);
+    });
+  }
+  async function chatSendRecordedAudio(dataUrl, mime) {
+    const jid = chatState.activeJid; if (!jid) return;
+    if (chatState._sending) return; chatState._sending = true;
+    const number = chatResolveApiNumber(jid);
+    const now = Date.now();
+    const localMsg = { id: 'local_' + now, remoteJid: jid, fromMe: true, timestamp: now, type: 'audio', text: '', caption: '', mediaUrl: dataUrl, mimetype: mime || 'audio/ogg', fileName: 'voice', thumbBase64: '', quotedMsg: null, status: 'sent', pushName: '' };
+    chatState.messages.push(localMsg);
+    if (chatState.allFetchedMessages) chatState.allFetchedMessages.push(localMsg);
+    chatRenderMessages(); chatScrollToBottom(true);
+    try {
+      const cfg = getCfg();
+      const res = await chatApiCall(`/message/sendWhatsAppAudio/${cfg.instance}`, { number, audio: dataUrl });
+      localMsg.status = (res && res.key) ? 'SERVER_ACK' : 'SERVER_ACK';
+      if (res && res.key) localMsg.id = res.key.id;
+      chatRenderMessages();
+    } catch (e) { localMsg.status = 'error'; chatRenderMessages(); chatShowToast('Voice send failed', 'error'); }
+    finally { chatState._sending = false; }
   }
 
   // ── Emoji picker ─────────────────────────────────────────────────────
