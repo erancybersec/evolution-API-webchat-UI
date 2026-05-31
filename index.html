@@ -5752,6 +5752,10 @@
         try { socket.disconnect(); } catch(e) {}
       });
 
+      // ── PRESENCE_UPDATE: contact typing / recording / online ──────────
+      socket.on('PRESENCE_UPDATE', chatApplyPresence);
+      socket.on('presence.update', chatApplyPresence);
+
       // ── MESSAGES_UPSERT: a new message was sent or received ────────────
       socket.on('MESSAGES_UPSERT', async (payload) => {
         try {
@@ -6491,7 +6495,8 @@
     // Timestamp + ticks
     const time = chatFormatTime(m.timestamp);
     const ticks = m.fromMe ? ' ' + chatTicks(m.status, m.id) : '';
-    const timeHtml = `<div class="flex items-center justify-end gap-1 mt-0.5"><span class="text-[10px] text-gray-500">${time}</span>${ticks}</div>`;
+    const editedHtml = m.edited ? `<span class="text-[10px] text-gray-400 italic mr-1">edited</span>` : '';
+    const timeHtml = `<div class="flex items-center justify-end gap-1 mt-0.5">${editedHtml}<span class="text-[10px] text-gray-500">${time}</span>${ticks}</div>`;
 
     // Reaction badges
     const msgReactions = reactionMap && reactionMap[m.id];
@@ -6822,7 +6827,8 @@
     const bar = document.getElementById('chat-reply-bar');
     bar.classList.remove('hidden');
     bar.style.display = 'flex';
-    document.getElementById('chat-reply-name').textContent = msg.fromMe ? 'You' : chatResolveName(msg.remoteJid);
+    document.getElementById('chat-reply-name').textContent = msg.fromMe ? 'You'
+      : (chatIsGroup(msg.remoteJid) ? (msg.pushName || chatResolveName(msg.senderJid || msg.remoteJid)) : chatResolveName(msg.remoteJid));
     document.getElementById('chat-reply-text').textContent = chatState.replyTo.text;
     document.getElementById('chat-input').focus();
   }
@@ -6973,11 +6979,67 @@
     items += `<button onclick="chatReactTo('${msgId}');this.parentElement.remove()">😀 React</button>`;
     items += `<button onclick="chatEnterSelectMode('${msgId}');this.parentElement.remove()">☑ Select</button>`;
     if (msg.type === 'text' && msg.text) items += `<button onclick="chatCopyWithMeta('${msgId}');this.parentElement.remove()">📋 Copy</button>`;
+    if (msg.fromMe && msg.type === 'text' && (Date.now() - (msg.timestamp || 0) < 15 * 60 * 1000)) items += `<button onclick="chatEditMsg('${msgId}');this.parentElement.remove()">✏️ Edit</button>`;
     items += `<button onclick="chatDeleteMsg('${msgId}');this.parentElement.remove()">🗑 Delete</button>`;
     menu.innerHTML = items;
     document.body.appendChild(menu);
     const close = (e) => { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', close); } };
     setTimeout(() => document.addEventListener('click', close), 10);
+  }
+
+  // ── Edit a sent message (WhatsApp allows ~15 min) ────────────────────
+  async function chatEditMsg(msgId) {
+    const msg = chatState.messages.find(m => m.id === msgId);
+    if (!msg || !msg.fromMe || msg.type !== 'text') return;
+    const next = prompt('Edit message:', msg.text || '');
+    if (next == null) return;
+    const text = next.trim();
+    if (!text || text === msg.text) return;
+    try {
+      const cfg = getCfg();
+      await chatApiCall(`/chat/updateMessage/${cfg.instance}`, {
+        number: chatResolveApiNumber(msg.remoteJid),
+        key: { id: msg.id, remoteJid: msg.remoteJid, fromMe: true },
+        text,
+      });
+      msg.text = text; msg.edited = true;
+      chatDbPut('chat_messages', msg).catch(() => {});
+      const am = (chatState.allFetchedMessages || []).find(x => x.id === msgId);
+      if (am) { am.text = text; am.edited = true; }
+      chatRenderMessages();
+      chatShowToast('Message edited', 'info');
+    } catch (e) { chatShowToast('Edit failed', 'error'); }
+  }
+
+  // ── Live presence (typing / online) from the WebSocket presence.update ──
+  let _chatPresenceRevert = null;
+  function chatResetHeaderStatus() {
+    const jid = chatState.activeJid, st = document.getElementById('chat-header-status');
+    if (!jid || !st) return;
+    st.style.color = '';
+    st.textContent = chatIsGroup(jid) ? 'Group' : (chatDisplayNumber(jid) || 'WhatsApp user');
+  }
+  function chatApplyPresence(payload) {
+    try {
+      const d = payload && (payload.data || payload);
+      if (!d) return;
+      const chatJid = d.id || d.remoteJid || d.chatId;
+      const presences = d.presences || (d.presence ? { [chatJid]: d.presence } : {});
+      const keys = Object.keys(presences || {});
+      if (!chatJid || !keys.length) return;
+      const pres = presences[keys[0]];
+      const state = (pres && (pres.lastKnownPresence || pres.presence)) || (typeof pres === 'string' ? pres : '');
+      const a = chatState.activeJid;
+      if (!a || chatIsGroup(a)) return;
+      const al = chatState.jidAliases || {};
+      if (!(chatJid === a || al[chatJid] === a || al[a] === chatJid)) return;
+      const st = document.getElementById('chat-header-status'); if (!st) return;
+      clearTimeout(_chatPresenceRevert);
+      if (state === 'composing') { st.textContent = 'typing…'; st.style.color = '#25D366'; _chatPresenceRevert = setTimeout(chatResetHeaderStatus, 10000); }
+      else if (state === 'recording') { st.textContent = 'recording audio…'; st.style.color = '#25D366'; _chatPresenceRevert = setTimeout(chatResetHeaderStatus, 10000); }
+      else if (state === 'available') { st.textContent = 'online'; st.style.color = '#25D366'; _chatPresenceRevert = setTimeout(chatResetHeaderStatus, 30000); }
+      else { chatResetHeaderStatus(); }
+    } catch (e) {}
   }
 
   // ── Multi-select ─────────────────────────────────────────────────────
