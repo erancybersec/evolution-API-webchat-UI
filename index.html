@@ -5271,6 +5271,27 @@
     if (jid && jid.endsWith('@lid')) return 'Chat'; // LID has no real phone number
     return '+' + n;
   }
+  // Resolve a real, displayable phone number (+E.164) for a chat. Handles @lid
+  // chats by following the jidAliases / remoteJidAlt link to the @s.whatsapp.net
+  // partner. Returns '' when no real phone is known.
+  function chatDisplayNumber(jid) {
+    if (!jid || chatIsGroup(jid)) return '';
+    const cand = new Set([jid]);
+    const al = chatState.jidAliases || {};
+    if (al[jid]) cand.add(al[jid]);                         // jid is a secondary → its primary
+    for (const [sec, pri] of Object.entries(al)) if (pri === jid) cand.add(sec); // jid is primary → secondary
+    const conv = chatState.conversations.find(c => c.id === jid);
+    if (conv && conv.altJid) cand.add(conv.altJid);
+    for (const j of cand) {
+      if (j && j.endsWith('@s.whatsapp.net')) {
+        const n = j.split('@')[0];
+        if (/^\d{7,15}$/.test(n)) return '+' + n;
+      }
+    }
+    const c = chatState.contacts[jid];
+    if (c && c.phone && /^\d{7,15}$/.test(c.phone) && !jid.endsWith('@lid')) return '+' + c.phone;
+    return '';
+  }
 
   // ── Contact / group info panel ───────────────────────────────────────
   async function chatOpenContactInfo() {
@@ -5281,7 +5302,8 @@
     if (!panel || !content) return;
     const isGroup = chatIsGroup(jid);
     const name = chatResolveName(jid);
-    const number = isGroup ? '' : chatExtractNumber(jid);
+    const number = isGroup ? '' : chatResolveApiNumber(jid);
+    const numberDisplay = isGroup ? '' : chatDisplayNumber(jid);
     const contact = chatState.contacts[jid] || {};
     const conv = chatState.conversations.find(c => c.id === jid) || {};
     const rawPic = contact.profilePicUrl || conv.profilePicUrl || '';
@@ -5298,7 +5320,7 @@
       <div class="px-6 py-7 text-center border-b border-gray-100">
         ${avatarBig}
         <p dir="auto" class="mt-4 text-xl font-semibold text-gray-900">${chatEsc(name)}</p>
-        <p class="text-sm text-gray-500 mt-1">${isGroup ? 'Group' : chatEsc(chatPrettyNumber(jid))}</p>
+        <p class="text-sm text-gray-500 mt-1">${isGroup ? 'Group' : chatEsc(numberDisplay || 'WhatsApp user')}</p>
         <p id="chat-contact-about" dir="auto" class="text-sm text-gray-400 mt-2 italic"></p>
       </div>
       <div class="px-3 py-3">
@@ -5937,7 +5959,7 @@
     // Update header
     const name = chatResolveName(jid);
     document.getElementById('chat-header-name').textContent = name;
-    document.getElementById('chat-header-status').textContent = chatIsGroup(jid) ? 'Group' : chatPrettyNumber(jid);
+    document.getElementById('chat-header-status').textContent = chatIsGroup(jid) ? 'Group' : (chatDisplayNumber(jid) || 'WhatsApp user');
     const avatarEl = document.getElementById('chat-header-avatar');
     const contact = chatState.contacts[jid];
     const conv = chatState.conversations.find(c => c.id === jid);
