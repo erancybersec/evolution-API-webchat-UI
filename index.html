@@ -4805,6 +4805,7 @@
       // Record timestamp of this full sync — delta sync uses it as baseline
       chatState._lastFullSyncAt = Date.now();
       try { localStorage.setItem('chat_lastSyncAt', String(chatState._lastFullSyncAt)); } catch(e) {}
+      try { localStorage.setItem('chat_jidAliases', JSON.stringify(chatState.jidAliases || {})); } catch(e) {}
       // DB write is best-effort — never block the UI
       chatDbPutMany('chat_conversations', convs).catch(e => console.warn('[Chat] DB write failed (non-fatal):', e.message));
       return convs;
@@ -4874,6 +4875,7 @@
       // Update timestamp immediately so next poll starts from now
       chatState._lastFullSyncAt = Date.now();
       try { localStorage.setItem('chat_lastSyncAt', String(chatState._lastFullSyncAt)); } catch(e) {}
+      try { localStorage.setItem('chat_jidAliases', JSON.stringify(chatState.jidAliases || {})); } catch(e) {}
 
       if (deltaRaw.length === 0) {
         console.log('[Chat] Delta sync: no changes since', since);
@@ -5461,7 +5463,8 @@
     const color = chatAvatarColor(c.id);
     const dispName = chatResolveName(c.id);
     const initials = chatInitials(dispName);
-    const safePicUrl = c.profilePicUrl && !chatState._failedPicUrls.has(c.profilePicUrl) ? c.profilePicUrl : '';
+    const rawPic = c.profilePicUrl || (chatState.contacts[c.id] && chatState.contacts[c.id].profilePicUrl) || '';
+    const safePicUrl = rawPic && !chatState._failedPicUrls.has(rawPic) ? rawPic : '';
     const avatar = safePicUrl
       ? `<img src="${safePicUrl}" class="w-12 h-12 rounded-full object-cover" onerror="chatClearFailedPic('${safePicUrl}');this.style.display='none';this.nextElementSibling.style.display='flex'"/><div class="w-12 h-12 rounded-full items-center justify-center text-white font-bold text-sm shrink-0" style="display:none;background:${color}">${initials}</div>`
       : `<div class="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0" style="background:${color}">${initials}</div>`;
@@ -5657,16 +5660,20 @@
       } catch (e) { console.warn('[Chat] cleanup IndexedDB error:', e); }
       console.log('[Chat] v5 cleanup: cleared contaminated group name cache');
     }
-    // Load from cache first for instant render
+    // Load from cache for instant render. CONTACTS + jid aliases must load
+    // BEFORE the conversation render, otherwise the first paint shows
+    // "WhatsApp user" / no photos until the network sync finishes.
     try {
+      const cachedContacts = await chatDbGetAll('chat_contacts');
+      cachedContacts.forEach(c => { chatState.contacts[c.id] = c; });
+      try { chatState.jidAliases = JSON.parse(localStorage.getItem('chat_jidAliases') || '{}'); }
+      catch (e) { chatState.jidAliases = chatState.jidAliases || {}; }
       const cached = await chatDbGetAll('chat_conversations');
       if (cached.length) {
         cached.sort((a, b) => (b.lastMsgTimestamp || 0) - (a.lastMsgTimestamp || 0));
         chatState.conversations = cached;
         chatRenderList();
       }
-      const cachedContacts = await chatDbGetAll('chat_contacts');
-      cachedContacts.forEach(c => { chatState.contacts[c.id] = c; });
     } catch (e) { console.warn('chatInit cache load error:', e); }
     // Fetch fresh data.
     const haveCache = chatState.conversations.length > 0;
