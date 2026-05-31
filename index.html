@@ -5570,9 +5570,16 @@
   // ── Init / Destroy ───────────────────────────────────────────────────
   async function chatInit() {
     if (chatState.initialized) {
+      // Render instantly from what's already in memory (no blank screen, no
+      // waiting on the network), then refresh in the background with a
+      // lightweight DELTA sync — only chats changed since the last sync —
+      // instead of re-fetching every chat on each tab entry.
+      chatRenderList();
+      chatUpdateUnreadBadge();
       chatStartPolling();
-      // Immediately refresh conversations on tab re-entry instead of waiting up to 5s
-      chatFetchConversations().then(() => { chatRenderList(); chatUpdateUnreadBadge(); });
+      chatFetchDeltaConversations()
+        .then(() => { chatRenderList(); chatUpdateUnreadBadge(); })
+        .catch(() => {});
       return;
     }
     chatState.initialized = true;
