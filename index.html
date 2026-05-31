@@ -5653,7 +5653,10 @@
     // localStorage and IndexedDB cache. Nuke both so chats reload fresh.
     // v4: JID format changed from DB ids to remoteJid — must clear stale caches
     // v5: group contact.displayName was contaminated with sender names — clear all
-    const cleanupVersion = 'wa_chat_archive_v5_cleaned';
+    // v6: stale @lid/duplicate conversations lingered in the cache (the write only
+    //     upserted, never deleted merged-away entries) — clear once so the list
+    //     cache rebuilds clean and the "two-phase" stale render goes away.
+    const cleanupVersion = 'wa_chat_cache_v6_cleaned';
     if (!localStorage.getItem(cleanupVersion)) {
       localStorage.removeItem('wa_chat_archived');
       localStorage.removeItem('wa_chat_archive_v2_cleaned');
