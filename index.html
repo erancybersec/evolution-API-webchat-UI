@@ -4075,6 +4075,9 @@
 
 
   function chatExtractNumber(jid) { return jid ? jid.split('@')[0] : ''; }
+  // Evolution rejects data: URLs whose mime has params (e.g. audio/webm;codecs=opus);
+  // send the raw base64 payload instead.
+  function chatRawBase64(s) { return (typeof s === 'string' && s.startsWith('data:') && s.includes(',')) ? s.slice(s.indexOf(',') + 1) : s; }
   function chatIsGroup(jid) { return jid && jid.endsWith('@g.us'); }
 
   /**
@@ -6811,7 +6814,7 @@
       let endpoint, body;
       if (isAudio) {
         endpoint = `/message/sendWhatsAppAudio/${cfg.instance}`;
-        body = { number, audio: base64 };
+        body = { number, audio: chatRawBase64(base64) };
       } else {
         endpoint = `/message/sendMedia/${cfg.instance}`;
         body = {
@@ -7397,7 +7400,7 @@
     chatRenderMessages(); chatScrollToBottom(true);
     try {
       const cfg = getCfg();
-      const res = await chatApiCall(`/message/sendWhatsAppAudio/${cfg.instance}`, { number, audio: dataUrl });
+      const res = await chatApiCall(`/message/sendWhatsAppAudio/${cfg.instance}`, { number, audio: chatRawBase64(dataUrl) });
       localMsg.status = (res && res.key) ? 'SERVER_ACK' : 'SERVER_ACK';
       if (res && res.key) localMsg.id = res.key.id;
       chatRenderMessages();
