@@ -6764,7 +6764,7 @@
   }
 
   // ── Send media ───────────────────────────────────────────────────────
-  async function chatSendMediaMsg(file) {
+  async function chatSendMediaMsg(file, caption = '') {
     if (!file || !chatState.activeJid) return;
     if (chatState._sending) return; // prevent double-send
     chatState._sending = true;
@@ -6788,7 +6788,7 @@
       id: 'local_' + now,
       remoteJid: jid, fromMe: true, timestamp: now,
       type: isImage ? 'image' : isVideo ? 'video' : isAudio ? 'audio' : 'document',
-      text: '', caption: '', mediaUrl: base64, mimetype: file.type, fileName: file.name, thumbBase64: '',
+      text: '', caption: caption || '', mediaUrl: base64, mimetype: file.type, fileName: file.name, thumbBase64: '',
       quotedMsg: null, status: 'sent', pushName: '',
     };
     chatState.messages.push(localMsg);
@@ -6808,7 +6808,7 @@
           mediatype: isImage ? 'image' : isVideo ? 'video' : 'document',
           media: base64,
           mimetype: file.type,
-          caption: '',
+          caption: caption || '',
           fileName: file.name,
         };
       }
@@ -7281,7 +7281,7 @@
   }
   function chatOnFileSelected(input) {
     if (input.files && input.files[0]) {
-      chatSendMediaMsg(input.files[0]);
+      chatShowMediaPreview(input.files[0]);
       input.value = '';
     }
   }
@@ -7293,10 +7293,47 @@
       if (item.kind === 'file' && item.type.startsWith('image/')) {
         event.preventDefault();
         const file = item.getAsFile();
-        if (file) chatSendMediaMsg(file);
+        if (file) chatShowMediaPreview(file);
         return;
       }
     }
+  }
+
+  // ── Media preview + caption before sending (WhatsApp-style) ──────────
+  function chatShowMediaPreview(file) {
+    if (!file || !chatState.activeJid) return;
+    const isImage = file.type.startsWith('image/');
+    const isVideo = file.type.startsWith('video/');
+    const isAudio = file.type.startsWith('audio/');
+    const url = URL.createObjectURL(file);
+    const overlay = document.createElement('div');
+    overlay.id = 'chat-media-preview';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:120;background:rgba(11,20,26,.95);display:flex;flex-direction:column';
+    let preview;
+    if (isImage) preview = `<img src="${url}" style="max-width:100%;max-height:100%;object-fit:contain;margin:auto;border-radius:8px"/>`;
+    else if (isVideo) preview = `<video src="${url}" controls style="max-width:100%;max-height:100%;margin:auto;border-radius:8px"></video>`;
+    else if (isAudio) preview = `<div style="margin:auto;text-align:center;color:#e9edef"><svg width="64" height="64" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-14 0m7 7v3m-4 0h8M12 3a3 3 0 00-3 3v5a3 3 0 006 0V6a3 3 0 00-3-3z"/></svg><div style="margin-top:14px"><audio src="${url}" controls></audio></div></div>`;
+    else preview = `<div style="margin:auto;text-align:center;color:#e9edef"><svg width="64" height="64" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg><p style="margin-top:10px;font-size:14px">${chatEsc(file.name)}</p></div>`;
+    const showCaption = !isAudio;
+    const title = isImage ? 'Send photo' : isVideo ? 'Send video' : isAudio ? 'Send audio' : 'Send file';
+    overlay.innerHTML =
+      `<div style="display:flex;align-items:center;gap:14px;padding:14px 18px">
+         <button id="cmp-cancel" title="Cancel" style="background:none;border:none;color:#e9edef;cursor:pointer;display:flex"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+         <span style="color:#e9edef;font-size:15px;font-weight:500">${title}</span>
+       </div>
+       <div style="flex:1;display:flex;overflow:hidden;padding:0 18px">${preview}</div>
+       <div style="display:flex;align-items:center;gap:10px;padding:16px 18px">
+         ${showCaption ? `<input id="cmp-caption" type="text" dir="auto" placeholder="Add a caption…" style="flex:1;background:#2a3942;color:#e9edef;border:none;border-radius:22px;padding:12px 18px;font-size:15px;outline:none"/>` : '<span style="flex:1"></span>'}
+         <button id="cmp-send" title="Send" style="width:52px;height:52px;border-radius:50%;background:#25D366;border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/></svg></button>
+       </div>`;
+    document.body.appendChild(overlay);
+    const cleanup = () => { try { URL.revokeObjectURL(url); } catch (e) {} overlay.remove(); };
+    const cap = overlay.querySelector('#cmp-caption');
+    const doSend = () => { const c = cap ? cap.value.trim() : ''; cleanup(); chatSendMediaMsg(file, c); };
+    overlay.querySelector('#cmp-cancel').onclick = cleanup;
+    overlay.querySelector('#cmp-send').onclick = doSend;
+    if (cap) { cap.focus(); cap.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doSend(); } }); }
+    document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { cleanup(); document.removeEventListener('keydown', esc); } });
   }
 
   // ── Voice note recording (MediaRecorder → sendWhatsAppAudio) ──────────
