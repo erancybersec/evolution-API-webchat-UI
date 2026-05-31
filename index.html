@@ -5670,7 +5670,7 @@
       catch (e) { chatState.jidAliases = chatState.jidAliases || {}; }
       const cached = await chatDbGetAll('chat_conversations');
       if (cached.length) {
-        cached.sort((a, b) => (b.lastMsgTimestamp || 0) - (a.lastMsgTimestamp || 0));
+        _chatSortConvs(cached); // same sort as live sync → no reshuffle on open
         chatState.conversations = cached;
         chatRenderList();
       }
