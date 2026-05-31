@@ -122,6 +122,11 @@
     #mobile-nav-toggle { display:none; }
     #nav-backdrop { display:none; }
     @media (max-width: 767px) {
+      /* Use the DYNAMIC viewport height so the chat fits the VISIBLE screen
+         (mobile browsers make 100vh taller than the visible area, which let the
+         whole page scroll and pushed the header + input bar off-screen). */
+      html, body { height: 100dvh !important; min-height: 0 !important; overflow: hidden; }
+      #app-body { height: calc(100dvh - 65px) !important; }
       #content-scroll { padding: 0 !important; }
       #mobile-nav-toggle { display:inline-flex; }
       /* app nav becomes a slide-in drawer */
@@ -274,7 +279,7 @@
 </div>
 
 <div id="nav-backdrop" onclick="toggleNav(false)"></div>
-<div class="flex h-[calc(100vh-65px)]">
+<div id="app-body" class="flex h-[calc(100vh-65px)]">
 
   <!-- Sidebar -->
   <aside id="app-nav" class="w-56 bg-white border-r border-gray-200 flex flex-col py-4 gap-1 px-3 overflow-y-auto shrink-0">
