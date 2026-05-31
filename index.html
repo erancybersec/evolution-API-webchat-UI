@@ -4278,6 +4278,19 @@
       tx.oncomplete = res; tx.onerror = e => rej(e.target.error);
     });
   }
+  // Replace the entire store with `records` in one transaction (clear + put).
+  // Used for the conversation cache so merged-away @lid/duplicate entries don't
+  // linger and produce a stale list on the next reload.
+  async function chatDbReplaceAll(store, records) {
+    const db = await openDB();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(store, 'readwrite');
+      const s = tx.objectStore(store);
+      s.clear();
+      records.forEach(r => s.put(r));
+      tx.oncomplete = res; tx.onerror = e => rej(e.target.error);
+    });
+  }
   async function chatDbDeleteByIndex(store, indexName, key) {
     const db = await openDB();
     return new Promise((res, rej) => {
@@ -4807,7 +4820,9 @@
       try { localStorage.setItem('chat_lastSyncAt', String(chatState._lastFullSyncAt)); } catch(e) {}
       try { localStorage.setItem('chat_jidAliases', JSON.stringify(chatState.jidAliases || {})); } catch(e) {}
       // DB write is best-effort — never block the UI
-      chatDbPutMany('chat_conversations', convs).catch(e => console.warn('[Chat] DB write failed (non-fatal):', e.message));
+      // Replace (not merge) so deduped/removed chats don't linger in the cache
+      // and cause a stale "phase 1" render on the next open.
+      if (convs.length) chatDbReplaceAll('chat_conversations', convs).catch(e => console.warn('[Chat] DB write failed (non-fatal):', e.message));
       return convs;
     } catch (e) { console.warn('chatFetchConversations error:', e); chatSetLoadStatus(''); return []; }
     finally { chatState._fetchingConversations = false; }
