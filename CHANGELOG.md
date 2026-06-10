@@ -4,6 +4,28 @@ All notable changes to this project are documented here.
 
 ---
 
+## [1.5.0] — 2026-06-10
+
+A standalone **Blacklist** — numbers you never want to message, enforced everywhere.
+
+### New Features
+
+#### Blacklist management (new "Safety → Blacklist" tab)
+- Table matching the data model `id · phone_number · name · added_date · why_blacklisted`, with inline-edit cells, search, select-all + multi-select delete, and per-row delete.
+- **Paste / import** numbers (one per line — `phone`, or `phone, name, reason`; comma/tab/pipe separated) with a live valid/invalid preview and de-duplication.
+- **Excel / CSV upload** (`.xlsx`/`.xls`/`.csv`, lazy-loads SheetJS) and **CSV export / copy-to-clipboard**.
+- Israeli + international phone normalization, kept identical on client and server.
+
+#### Send-time protection (non-blocking)
+- Blacklisted recipients in Compose are highlighted in **red** and summarized in a calm banner ("N of M recipients are on the blacklist and will be skipped: …") — it never blocks sending.
+- They are filtered out at send time; the result reports e.g. "118/120 sent · 2 skipped (blacklisted)".
+
+### Architecture
+- Storage-agnostic: talks to the backend `/api/blacklist` when hosted, falls back to the browser (IndexedDB) when run standalone — the shared `index.html` carries no vendor specifics.
+- Companion backend (deployed separately) now owns the blacklist in its own SQLite DB and enforces it on every send (Compose, bulk, scheduled), making it fully standalone of n8n.
+
+---
+
 ## [1.4.0] — 2026-06-01
 
 A major overhaul of the **Chat Inbox** — mobile-ready, with media, voice, and WhatsApp-style interactions.

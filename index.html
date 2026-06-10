@@ -33,6 +33,20 @@
     .chip { display:inline-flex; align-items:center; gap:4px; background:#dcfce7; color:#166534; border-radius:999px; padding:2px 8px 2px 10px; font-size:12px; font-weight:500; white-space:nowrap; }
     .chip button { background:none; border:none; cursor:pointer; font-size:13px; line-height:1; padding:0 0 0 2px; color:inherit; opacity:.55; }
     .chip button:hover { opacity:1; }
+    .chip.blocked { background:#fee2e2; color:#991b1b; }
+    .bl-cell { padding:8px 12px; outline:none; min-height:18px; display:block; }
+    .bl-cell[contenteditable]:focus { background:#f0fdf4; box-shadow:inset 0 0 0 2px #25D366; border-radius:4px; }
+    .bl-cell.ro { color:#9ca3af; }
+    .bl-table { width:100%; border-collapse:collapse; }
+    .bl-table th { font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#6b7280; font-weight:600; text-align:left; padding:10px 12px; border-bottom:1px solid #e5e7eb; background:#f9fafb; white-space:nowrap; }
+    .bl-table td { padding:0; border-bottom:1px solid #f1f5f9; vertical-align:middle; font-size:13px; color:#374151; }
+    .bl-table tbody tr:hover td { background:#f9fafb; }
+    .bl-table tbody tr.sel td { background:#f0fdf4; }
+    .bl-del-x { background:none; border:none; cursor:pointer; color:#cbd5e1; font-size:16px; padding:4px 8px; border-radius:6px; line-height:1; }
+    .bl-del-x:hover { color:#dc2626; background:#fef2f2; }
+    #bl-import-modal.open { display:flex !important; }
+    #bl-toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#1f2937; color:#fff; padding:10px 22px; border-radius:8px; font-size:14px; z-index:300; opacity:0; transition:opacity .25s; pointer-events:none; }
+    #bl-toast.show { opacity:1; }
     .btn-send:disabled { background:#9ca3af !important; cursor:not-allowed; }
     .field-error { border-color: #ef4444 !important; box-shadow: 0 0 0 3px rgba(239,68,68,.12) !important; }
     .field-error-msg { color: #dc2626; font-size: 11px; margin-top: 4px; display: block; }
@@ -347,6 +361,15 @@
     </button>
 
     <div class="my-3 border-t border-gray-200"></div>
+    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 mb-2">Safety</p>
+
+    <button class="sidebar-btn text-sm font-medium px-3 py-2.5 rounded-lg text-left text-gray-600 flex items-center gap-2.5" onclick="switchTab('blacklist', this)">
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636L5.636 18.364M12 21a9 9 0 110-18 9 9 0 010 18z"/></svg>
+      Blacklist
+      <span id="blacklist-badge" class="hidden ml-auto bg-red-100 text-red-700 text-xs font-bold px-1.5 py-0.5 rounded-full"></span>
+    </button>
+
+    <div class="my-3 border-t border-gray-200"></div>
     <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 mb-2">Account</p>
 
     <button class="sidebar-btn text-sm font-medium px-3 py-2.5 rounded-lg text-left text-gray-600 flex items-center gap-2.5" onclick="switchTab('settings', this)">
@@ -578,6 +601,9 @@
               Paste multiple numbers (comma or newline separated)
             </p>
           </div>
+
+          <!-- Blacklist warning (non-blocking) — populated by blUpdateComposeWarning() -->
+          <div id="compose-bl-warn" class="hidden text-sm rounded-lg px-3.5 py-2.5" style="background:#fffbeb;border:1px solid #fde68a;color:#92400e"></div>
 
           <!-- Message Queue -->
           <div>
@@ -1322,6 +1348,78 @@
         </div>
       </div>
 
+      <!-- BLACKLIST -->
+      <div id="tab-blacklist" class="tab-panel max-w-5xl">
+        <h2 class="text-lg font-semibold text-gray-800">Blacklist</h2>
+        <p class="text-sm text-gray-500 mb-4">Numbers here are never messaged — Compose &amp; bulk sends skip them automatically.</p>
+
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
+          <div class="p-3 border-b border-gray-100 flex items-center gap-2 flex-wrap">
+            <button onclick="blOpenAdd()" class="btn-send text-white text-sm font-semibold px-4 py-2 rounded-lg">＋ Add number</button>
+            <button onclick="blOpenImport()" class="border border-gray-300 text-gray-600 text-sm font-medium px-3 py-2 rounded-lg hover:bg-gray-50">📋 Paste / Import</button>
+            <button id="bl-del-sel-btn" onclick="blDeleteSelected()" style="display:none" class="border border-red-200 text-red-600 text-sm font-medium px-3 py-2 rounded-lg hover:bg-red-50">🗑 Delete selected (<span id="bl-sel-count">0</span>)</button>
+            <div class="relative flex-1 min-w-[180px]">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔎</span>
+              <input id="bl-search" oninput="blRenderTable()" placeholder="Search number, name, or reason…" class="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm"/>
+            </div>
+            <span id="bl-count-label" class="text-xs text-gray-500"></span>
+            <button onclick="blExportCsv()" class="border border-gray-300 text-gray-600 text-sm font-medium px-3 py-2 rounded-lg hover:bg-gray-50" title="Download CSV">⬇ CSV</button>
+            <button onclick="blCopyTable()" class="border border-gray-300 text-gray-600 text-sm font-medium px-3 py-2 rounded-lg hover:bg-gray-50" title="Copy to clipboard">⧉ Copy</button>
+          </div>
+
+          <div id="bl-add-form" class="hidden p-3 bg-green-50/50 border-b border-gray-100 flex items-end gap-2 flex-wrap">
+            <div class="flex-1 min-w-[170px]"><label class="block text-[11px] font-medium text-gray-600 mb-1">Phone <span class="text-red-400">*</span></label><input id="blf-phone" placeholder="0543970120 or 972543970120" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"/></div>
+            <div class="flex-1 min-w-[120px]"><label class="block text-[11px] font-medium text-gray-600 mb-1">Name</label><input id="blf-name" dir="auto" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"/></div>
+            <div class="flex-[2] min-w-[150px]"><label class="block text-[11px] font-medium text-gray-600 mb-1">Why blacklisted</label><input id="blf-why" dir="auto" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"/></div>
+            <button onclick="blSubmitAdd()" class="btn-send text-white text-sm font-semibold px-4 py-2 rounded-lg">Add</button>
+            <button onclick="blCloseAdd()" class="border border-gray-300 text-gray-600 text-sm font-medium px-3 py-2 rounded-lg hover:bg-gray-50">Cancel</button>
+            <span id="bl-add-err" class="text-xs text-red-600 w-full"></span>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="bl-table">
+              <thead><tr>
+                <th style="width:34px;text-align:center"><input type="checkbox" id="bl-sel-all" onchange="blToggleAll()"/></th>
+                <th style="width:40px">id</th>
+                <th style="width:150px">phone_number</th>
+                <th style="width:130px">name</th>
+                <th>why_blacklisted</th>
+                <th style="width:104px">added_date</th>
+                <th style="width:40px"></th>
+              </tr></thead>
+              <tbody id="bl-tbody"></tbody>
+            </table>
+          </div>
+          <div id="bl-empty" class="hidden text-center text-gray-400 text-sm py-10"></div>
+          <div class="px-3 py-2 text-[11px] text-gray-400 border-t border-gray-50">Tip: click any phone, name, or reason cell to edit it inline (Enter to save).</div>
+        </div>
+
+        <!-- import modal -->
+        <div id="bl-import-modal" class="fixed inset-0 z-[100] items-center justify-center bg-black/40" style="display:none">
+          <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl mx-4 flex flex-col max-h-[85vh]">
+            <div class="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
+              <span class="font-semibold text-gray-800">Paste / Import numbers</span>
+              <button onclick="blCloseImport()" class="text-gray-400 hover:text-gray-700 text-xl leading-none">&times;</button>
+            </div>
+            <div class="px-5 py-4 overflow-y-auto flex-1">
+              <p class="text-xs text-gray-500 mb-2">One per line — <code>phone</code>, or <code>phone, name, reason</code> (comma / tab / pipe separated). Paste straight from Excel.</p>
+              <textarea id="bl-import-text" oninput="blParseImportPreview()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" style="height:130px;font-family:'Courier New',monospace;resize:vertical" placeholder="0526242123, ערן שמשי, ביקש להסיר&#10;972541234567, דני כהן&#10;0501234567"></textarea>
+              <div class="flex items-center gap-2 mt-2">
+                <label class="border border-gray-300 text-gray-600 text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer">📑 Upload Excel / CSV
+                  <input type="file" accept=".csv,.xlsx,.xls,.txt" class="hidden" onchange="blHandleFile(this)"/>
+                </label>
+                <span class="text-[11px] text-gray-400">.xlsx · .xls · .csv — columns: phone · name · reason</span>
+              </div>
+              <div id="bl-import-preview" class="mt-3"></div>
+            </div>
+            <div class="px-5 py-3 border-t border-gray-100 flex gap-2">
+              <button id="bl-import-add-btn" onclick="blSubmitImport()" disabled class="btn-send text-white text-sm font-semibold px-4 py-2 rounded-lg">Add all</button>
+              <button onclick="blCloseImport()" class="border border-gray-300 text-gray-600 text-sm font-medium px-3 py-2 rounded-lg hover:bg-gray-50">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div id="tab-settings" class="tab-panel max-w-2xl space-y-6">
         <div>
           <h2 class="text-lg font-semibold text-gray-800 mb-1">Profile Settings</h2>
@@ -1706,6 +1804,7 @@
     applyConfig();
     const cfg = getCfg();
     if (!cfg.apikey || !cfg.base) openConfig();
+    if (typeof blInit === 'function') blInit();
   })();
 
   // ── PHONE VALIDATION (libphonenumber-js) ──────────────────────────────────
@@ -2038,7 +2137,7 @@
     try {
       const res = await fetch(url, { headers: { 'apikey': cfg.apikey } });
       const data = await res.json();
-      allGroups = Array.isArray(data) ? data : [];
+      allGroups = (Array.isArray(data) ? data : []).sort((a, b) => (a.subject || '').localeCompare(b.subject || '', undefined, { sensitivity: 'base' }));
       filteredGroups = [...allGroups];
       renderGroupList(allGroups);
       document.getElementById('groups-count').textContent = `${allGroups.length} groups`;
@@ -2337,13 +2436,14 @@
       if (scrollArea) scrollArea.scrollTop = 0;
     }
     // Hide the response panel for tabs that don't make direct API calls
-    const noResponsePanel = ['scheduled', 'settings', 'chat'];
+    const noResponsePanel = ['scheduled', 'settings', 'chat', 'blacklist'];
     const respPanel = document.querySelector('main > div.border-t');
     if (respPanel) respPanel.style.display = noResponsePanel.includes(name) ? 'none' : '';
     // Apply pending history duplicate when switching to compose tab
     if (name === 'text') setTimeout(() => applyPendingHistoryDuplicate(), 50);
     // Render history when switching to scheduled tab
     if (name === 'scheduled') renderSendHistory();
+    if (name === 'blacklist') blRenderTable();
   }
 
   function toggleDelay(prefix) {
@@ -2719,7 +2819,15 @@
       return it;
     });
 
-    const numbers = [...textRecipients];
+    const allRecipients = [...textRecipients];
+    const numbers = allRecipients.filter(n => !(typeof blIsBlacklisted === 'function' && blIsBlacklisted(n)));
+    const skippedRecipients = allRecipients.length - numbers.length;
+    if (!numbers.length) {
+      progress.className = 'text-xs rounded-lg px-3 py-2 bg-amber-50 text-amber-800';
+      progress.textContent = `Nothing sent — all ${allRecipients.length} recipient(s) are on the blacklist.`;
+      sendBtn.disabled = false;
+      return;
+    }
     const total = numbers.length * queueItems.length;
     let ok = 0, fail = 0, done = 0;
 
@@ -2746,8 +2854,8 @@
       }
     }
 
-    progress.className = `text-xs rounded-lg px-3 py-2 ${fail ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`;
-    progress.textContent = `Done: ${ok}/${total} sent${fail ? `, ${fail} failed` : ''}`;
+    progress.className = `text-xs rounded-lg px-3 py-2 ${fail ? 'bg-red-50 text-red-700' : (skippedRecipients ? 'bg-amber-50 text-amber-800' : 'bg-green-50 text-green-700')}`;
+    progress.textContent = `Done: ${ok}/${total} sent${skippedRecipients ? `, ${skippedRecipients} skipped (blacklisted)` : ''}${fail ? `, ${fail} failed` : ''}`;
     sendBtn.disabled = false;
 
     // Save to send history
@@ -2930,11 +3038,270 @@
       if (this.value.trim()) { addTextChip(this.value.trim()); this.value = ''; }
     });
   }
+  // ══ BLACKLIST ══════════════════════════════════════════════════════════════
+  // Vendor-neutral: when a backend exists (server mode) it talks to /api/blacklist;
+  // otherwise it persists to IndexedDB (standalone). The send-side warning reads blCache.
+  let blCache = [];
+  let blSet   = new Set();
+  const blSelected = new Set();
+
+  function blBackend() {
+    if (serverCfg && serverCfg.backend) return serverCfg.backend;
+    if (window.__WA_SERVER_MODE__) return '/api';   // injected overlay (hosted) — be robust
+    return null;
+  }
+  function blEsc(s) { return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])); }
+  function blToday() { return new Date().toISOString().slice(0, 10); }
+  function blToast(msg) {
+    let t = document.getElementById('bl-toast');
+    if (!t) { t = document.createElement('div'); t.id = 'bl-toast'; document.body.appendChild(t); }
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(blToast._t); blToast._t = setTimeout(() => t.classList.remove('show'), 2200);
+  }
+  // Normalize a phone the same way the server does (deterministic Israeli rules),
+  // with libphonenumber as a fallback for other countries. Keeps client ↔ server in sync.
+  function blNorm(raw) {
+    if (raw == null) return null;
+    const d = String(raw).replace(/\D/g, '');
+    if (d.startsWith('972') && d.length === 12 && d[3] === '5') return d;          // 972 5X XXXXXXX
+    if (d.startsWith('0')   && d.length === 10 && d[1] === '5') return '972' + d.slice(1); // 05X…
+    if (d.startsWith('5')   && d.length === 9)  return '972' + d;                  // 5X…
+    try { const v = validatePhone(String(raw)); if (v) return v; } catch (e) {}    // other countries
+    if (d.startsWith('972')) return null;                                          // malformed IL
+    if (/^[1-9]\d{9,14}$/.test(d)) return d;                                       // international
+    return null;
+  }
+  function blIsBlacklisted(number) {
+    if (!number) return false;
+    const s = String(number);
+    if (s.includes('@g.us')) return false;
+    if (blSet.has(s) || blSet.has(s.replace(/\D/g, ''))) return true;
+    const n = blNorm(number);
+    return !!(n && blSet.has(n));
+  }
+  function blRebuild() {
+    blSet = new Set(blCache.map(b => b.phone_number));
+    const badge = document.getElementById('blacklist-badge');
+    if (badge) { badge.textContent = blCache.length; badge.classList.toggle('hidden', blCache.length === 0); }
+  }
+
+  // ── storage layer (backend REST | IndexedDB) ──
+  async function blDbAll() { const db = await openDB(); return new Promise((res, rej) => { const tx = db.transaction('blacklist', 'readonly'); const r = tx.objectStore('blacklist').getAll(); r.onsuccess = () => res(r.result || []); r.onerror = e => rej(e.target.error); }); }
+  async function blDbPut(row) { const db = await openDB(); return new Promise((res, rej) => { const tx = db.transaction('blacklist', 'readwrite'); tx.objectStore('blacklist').put(row); tx.oncomplete = () => res(); tx.onerror = e => rej(e.target.error); }); }
+  async function blDbDel(phone) { const db = await openDB(); return new Promise((res, rej) => { const tx = db.transaction('blacklist', 'readwrite'); tx.objectStore('blacklist').delete(phone); tx.oncomplete = () => res(); tx.onerror = e => rej(e.target.error); }); }
+
+  async function blStoreList() {
+    const be = blBackend();
+    if (be) { const r = await fetch(be + '/blacklist', { headers: { Accept: 'application/json' } }); if (!r.ok) throw new Error('blacklist list failed'); return await r.json(); }
+    return (await blDbAll()).sort((a, b) => (b.id || 0) - (a.id || 0));
+  }
+  async function blStoreAdd(rows) {
+    const be = blBackend();
+    if (be) { const r = await fetch(be + '/blacklist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rows }) }); return await r.json(); }
+    const existing = await blDbAll();
+    let added = 0;
+    for (const row of rows) {
+      const p = blNorm(row.phone_number || row.phone || row.number); if (!p) continue;
+      const prev = existing.find(x => x.phone_number === p);
+      await blDbPut({ phone_number: p, name: String(row.name || '').trim(), why_blacklisted: String(row.why_blacklisted || row.why || '').trim(),
+        added_date: prev ? prev.added_date : (row.added_date || blToday()), id: prev ? prev.id : Date.now() * 1000 + (added % 1000) });
+      added++;
+    }
+    return { ok: true, added };
+  }
+  async function blStoreUpdate(oldPhone, fields) {
+    const be = blBackend();
+    if (be) { const r = await fetch(be + '/blacklist/' + encodeURIComponent(oldPhone), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields) });
+      if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) || {}).error || 'update failed'); return await r.json(); }
+    const all = await blDbAll(); const row = all.find(x => x.phone_number === oldPhone); if (!row) return;
+    const newPhone = fields.phone_number != null ? blNorm(fields.phone_number) : oldPhone;
+    if (!newPhone) throw new Error('invalid phone');
+    if (newPhone !== oldPhone) { if (all.some(x => x.phone_number === newPhone)) throw new Error('duplicate'); await blDbDel(oldPhone); }
+    await blDbPut({ ...row, phone_number: newPhone,
+      name: fields.name != null ? String(fields.name).trim() : row.name,
+      why_blacklisted: fields.why_blacklisted != null ? String(fields.why_blacklisted).trim() : row.why_blacklisted });
+  }
+  async function blStoreRemove(phones) {
+    const be = blBackend();
+    if (be) {
+      if (phones.length === 1) await fetch(be + '/blacklist/' + encodeURIComponent(phones[0]), { method: 'DELETE' });
+      else await fetch(be + '/blacklist/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phones }) });
+      return;
+    }
+    for (const p of phones) await blDbDel(p);
+  }
+
+  async function blInit() { try { blCache = await blStoreList(); } catch (e) { console.warn('[blacklist] load failed', e); blCache = []; } blRebuild(); blRenderTable(); blUpdateComposeWarning(); }
+  async function blReload() { try { blCache = await blStoreList(); } catch (e) { blCache = []; } blRebuild(); blRenderTable(); blUpdateComposeWarning(); }
+
+  // ── table ──
+  function blRenderTable() {
+    const tbody = document.getElementById('bl-tbody'); if (!tbody) return;
+    const q = (document.getElementById('bl-search').value || '').trim().toLowerCase();
+    const rows = blCache.filter(b => !q || (b.phone_number || '').includes(q) || (b.name || '').toLowerCase().includes(q) || (b.why_blacklisted || '').toLowerCase().includes(q));
+    tbody.innerHTML = rows.map(b => {
+      const p = blEsc(b.phone_number);
+      return '<tr class="' + (blSelected.has(b.phone_number) ? 'sel' : '') + '">'
+        + '<td style="text-align:center"><input type="checkbox" ' + (blSelected.has(b.phone_number) ? 'checked' : '') + ' onchange="blToggleSel(\'' + p + '\')"></td>'
+        + '<td><span class="bl-cell ro">' + (b.id != null ? b.id : '—') + '</span></td>'
+        + '<td><span class="bl-cell" contenteditable dir="ltr" style="font-family:monospace" onblur="blEditCell(\'' + p + '\',\'phone_number\',this)" onkeydown="blCellKey(event)">' + p + '</span></td>'
+        + '<td><span class="bl-cell" contenteditable dir="auto" onblur="blEditCell(\'' + p + '\',\'name\',this)" onkeydown="blCellKey(event)">' + blEsc(b.name) + '</span></td>'
+        + '<td><span class="bl-cell" contenteditable dir="auto" onblur="blEditCell(\'' + p + '\',\'why_blacklisted\',this)" onkeydown="blCellKey(event)">' + blEsc(b.why_blacklisted) + '</span></td>'
+        + '<td><span class="bl-cell ro">' + blEsc(b.added_date) + '</span></td>'
+        + '<td style="text-align:center"><button class="bl-del-x" title="Remove" onclick="blDelOne(\'' + p + '\')">&times;</button></td>'
+        + '</tr>';
+    }).join('');
+    const empty = document.getElementById('bl-empty');
+    empty.classList.toggle('hidden', rows.length !== 0);
+    empty.textContent = blCache.length === 0 ? 'Blacklist is empty — add a number or import a list.' : 'No numbers match your search.';
+    document.getElementById('bl-count-label').textContent = blCache.length + (blCache.length === 1 ? ' number' : ' numbers');
+    document.getElementById('bl-sel-count').textContent = blSelected.size;
+    document.getElementById('bl-del-sel-btn').style.display = blSelected.size ? '' : 'none';
+    const selAll = document.getElementById('bl-sel-all'); if (selAll) selAll.checked = rows.length > 0 && rows.every(r => blSelected.has(r.phone_number));
+    blRebuild();
+  }
+  function blCellKey(e) { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } if (e.key === 'Escape') e.target.blur(); }
+  async function blEditCell(phone, field, el) {
+    const row = blCache.find(r => r.phone_number === phone); if (!row) return;
+    const val = el.textContent.trim();
+    if (field === 'phone_number') {
+      if (val === phone) return;
+      const n = blNorm(val);
+      if (!n) { blToast('Invalid phone — reverted'); el.textContent = phone; return; }
+      if (n !== phone && blCache.some(r => r.phone_number === n)) { blToast('Already on the list — reverted'); el.textContent = phone; return; }
+      try { await blStoreUpdate(phone, { phone_number: n }); blToast('Phone updated'); } catch (e) { blToast('Update failed'); el.textContent = phone; return; }
+      await blReload();
+    } else if (val !== (row[field] || '')) {
+      try { await blStoreUpdate(phone, { [field]: val }); row[field] = val; blToast('Saved'); blRebuild(); } catch (e) { blToast('Update failed'); }
+    }
+  }
+  function blToggleSel(p) { blSelected.has(p) ? blSelected.delete(p) : blSelected.add(p); blRenderTable(); }
+  function blToggleAll() { const on = document.getElementById('bl-sel-all').checked; blSelected.clear(); if (on) blCache.forEach(b => blSelected.add(b.phone_number)); blRenderTable(); }
+  async function blDelOne(p) {
+    const b = blCache.find(r => r.phone_number === p);
+    if (!confirm('Remove ' + ((b && b.name) || p) + ' from the blacklist?')) return;
+    try { await blStoreRemove([p]); } catch (e) { return blToast('Delete failed'); }
+    blSelected.delete(p); blToast('Removed'); await blReload();
+  }
+  async function blDeleteSelected() {
+    const phones = [...blSelected]; if (!phones.length) return;
+    if (!confirm('Remove ' + phones.length + ' number(s) from the blacklist?')) return;
+    try { await blStoreRemove(phones); } catch (e) { return blToast('Delete failed'); }
+    blSelected.clear(); blToast(phones.length + ' removed'); await blReload();
+  }
+
+  // ── add form ──
+  function blOpenAdd() {
+    document.getElementById('bl-add-form').classList.remove('hidden');
+    ['blf-phone', 'blf-name', 'blf-why'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('bl-add-err').textContent = '';
+    document.getElementById('blf-phone').focus();
+  }
+  function blCloseAdd() { document.getElementById('bl-add-form').classList.add('hidden'); }
+  async function blSubmitAdd() {
+    const n = blNorm(document.getElementById('blf-phone').value);
+    const err = document.getElementById('bl-add-err');
+    if (!n) { err.textContent = 'Enter a valid phone (Israeli 05X or international).'; return; }
+    if (blCache.some(b => b.phone_number === n)) { err.textContent = 'That number is already on the blacklist.'; return; }
+    try {
+      await blStoreAdd([{ phone_number: n, name: document.getElementById('blf-name').value.trim(), why_blacklisted: document.getElementById('blf-why').value.trim() }]);
+      blCloseAdd(); blToast('Added: ' + n); await blReload();
+    } catch (e) { err.textContent = 'Could not save — ' + (e.message || e); }
+  }
+
+  // ── paste / import (Excel · CSV · text) ──
+  let blParsedImport = [];
+  function blOpenImport() {
+    document.getElementById('bl-import-modal').classList.add('open');
+    document.getElementById('bl-import-text').value = '';
+    document.getElementById('bl-import-preview').innerHTML = '';
+    document.getElementById('bl-import-add-btn').disabled = true;
+    blParsedImport = [];
+  }
+  function blCloseImport() { document.getElementById('bl-import-modal').classList.remove('open'); }
+  function blParseLine(line) {
+    line = line.trim(); if (!line) return null;
+    const parts = line.split(/[,\t|]/).map(s => s.trim()).filter(Boolean);
+    if (!parts.length) return null;
+    let phone = null, idx = -1;
+    for (let i = 0; i < parts.length; i++) { const p = blNorm(parts[i]); if (p) { phone = p; idx = i; break; } }
+    if (!phone) return { error: line };
+    const rest = parts.filter((_, i) => i !== idx);
+    return { phone, name: rest[0] || '', why: rest[1] || '' };
+  }
+  function blParseImportPreview() {
+    const lines = (document.getElementById('bl-import-text').value || '').split('\n');
+    blParsedImport = []; const errors = []; const seen = new Set();
+    for (const ln of lines) {
+      if (!ln.trim()) continue;
+      const r = blParseLine(ln);
+      if (r && r.phone) { if (!seen.has(r.phone) && !blCache.some(b => b.phone_number === r.phone)) { seen.add(r.phone); blParsedImport.push(r); } }
+      else if (r && r.error) errors.push(r.error);
+    }
+    let html = '';
+    if (blParsedImport.length) {
+      const cell = 'border:1px solid #e5e7eb;padding:5px 9px;text-align:left';
+      html += '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>'
+        + '<th style="' + cell + '">phone</th><th style="' + cell + '">name</th><th style="' + cell + '">reason</th></tr></thead><tbody>';
+      html += blParsedImport.map(r => '<tr style="background:#f0fdf4"><td style="' + cell + ';font-family:monospace" dir="ltr">' + r.phone + '</td><td style="' + cell + '" dir="auto">' + (blEsc(r.name) || '—') + '</td><td style="' + cell + '" dir="auto">' + (blEsc(r.why) || '—') + '</td></tr>').join('');
+      html += '</tbody></table>';
+    }
+    html += '<div class="mt-2 text-xs text-gray-500"><b>' + blParsedImport.length + '</b> to add' + (errors.length ? ' · <span class="text-red-600"><b>' + errors.length + '</b> invalid (skipped)</span>' : '') + '</div>';
+    document.getElementById('bl-import-preview').innerHTML = html;
+    document.getElementById('bl-import-add-btn').disabled = !blParsedImport.length;
+  }
+  function blLoadSheetJS() { return window.XLSX ? Promise.resolve(window.XLSX) : new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload = () => res(window.XLSX); s.onerror = () => rej(new Error('SheetJS load failed')); document.head.appendChild(s); }); }
+  async function blHandleFile(input) {
+    const f = input.files[0]; if (!f) return;
+    const ext = (f.name.split('.').pop() || '').toLowerCase();
+    try {
+      if (ext === 'csv' || ext === 'txt') { document.getElementById('bl-import-text').value = await f.text(); }
+      else { const XLSX = await blLoadSheetJS(); const wb = XLSX.read(await f.arrayBuffer()); const ws = wb.Sheets[wb.SheetNames[0]];
+        const arr = XLSX.utils.sheet_to_json(ws, { header: 1 }).filter(r => r && r.length);
+        document.getElementById('bl-import-text').value = arr.map(r => r.join(', ')).join('\n'); }
+      blParseImportPreview(); blToast('Loaded ' + f.name);
+    } catch (e) { blToast('Could not read file'); }
+    input.value = '';
+  }
+  async function blSubmitImport() {
+    if (!blParsedImport.length) return;
+    const btn = document.getElementById('bl-import-add-btn'); btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Adding…';
+    try { await blStoreAdd(blParsedImport.map(r => ({ phone_number: r.phone, name: r.name, why_blacklisted: r.why }))); blToast(blParsedImport.length + ' added'); blCloseImport(); await blReload(); }
+    catch (e) { blToast('Import failed'); btn.disabled = false; btn.textContent = orig; }
+  }
+
+  // ── export ──
+  function blRowsToTable() { const h = ['id', 'phone_number', 'name', 'added_date', 'why_blacklisted']; return [h].concat(blCache.map(b => h.map(k => (b[k] != null ? b[k] : '')))); }
+  function blExportCsv() {
+    const csv = blRowsToTable().map(r => r.map(c => { c = String(c); return /[",\n]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c; }).join(',')).join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'blacklist.csv'; document.body.appendChild(a); a.click(); a.remove();
+    blToast('CSV downloaded');
+  }
+  function blCopyTable() {
+    const tsv = blRowsToTable().map(r => r.join('\t')).join('\n');
+    (navigator.clipboard ? navigator.clipboard.writeText(tsv) : Promise.reject()).then(() => blToast('Copied ' + blCache.length + ' rows')).catch(() => blToast('Copy failed'));
+  }
+
+  // ── compose / bulk warning (non-blocking) ──
+  function blUpdateComposeWarning() {
+    const warn = document.getElementById('compose-bl-warn'); if (!warn) return;
+    const recips = (typeof textRecipients !== 'undefined') ? textRecipients : [];
+    const hits = recips.filter(n => blIsBlacklisted(n));
+    if (!hits.length) { warn.classList.add('hidden'); warn.innerHTML = ''; return; }
+    const by = {}; blCache.forEach(b => { by[b.phone_number] = b; });
+    const names = hits.slice(0, 3).map(n => { const b = by[n] || by[blNorm(n)]; const nm = (b && b.name) ? b.name : n; return '<b dir="auto">' + blEsc(nm) + '</b> <span style="opacity:.7;font-family:monospace">(' + blEsc(n) + ')</span>'; });
+    const more = hits.length - names.length;
+    warn.innerHTML = '🚫 <b>' + hits.length + '</b> of <b>' + recips.length + '</b> recipient' + (recips.length === 1 ? '' : 's') + ' ' + (hits.length === 1 ? 'is' : 'are') + ' on the blacklist and will be <b>skipped</b>: ' + names.join(', ') + (more > 0 ? ' and <b>' + more + '</b> more' : '') + ' &nbsp;·&nbsp; <a href="#" onclick="blReviewFromCompose();return false" style="text-decoration:underline;font-weight:600">Review list</a>';
+    warn.classList.remove('hidden');
+  }
+  function blReviewFromCompose() { const btn = [...document.querySelectorAll('.sidebar-btn')].find(b => (b.getAttribute('onclick') || '').includes("switchTab('blacklist'")); if (btn) switchTab('blacklist', btn); }
+
   // ── SCHEDULER ─────────────────────────────────────────────────────────────
-  const DB_NAME = 'wa_manager', DB_VERSION = 4, STORE_NAME = 'scheduled_jobs';
+  const DB_NAME = 'wa_manager', DB_VERSION = 5, STORE_NAME = 'scheduled_jobs';
   let _db = null;
 
-  const REQUIRED_STORES = ['scheduled_jobs', 'chat_contacts', 'chat_conversations', 'chat_messages', 'send_history'];
+  const REQUIRED_STORES = ['scheduled_jobs', 'chat_contacts', 'chat_conversations', 'chat_messages', 'send_history', 'blacklist'];
 
   function _buildStores(db) {
     if (!db.objectStoreNames.contains(STORE_NAME)) {
@@ -2956,6 +3323,10 @@
     if (!db.objectStoreNames.contains('send_history')) {
       const sh = db.createObjectStore('send_history', { keyPath: 'id' });
       sh.createIndex('sentAt', 'sentAt');
+    }
+    // Blacklist (standalone mode) — keyed by the normalized phone number.
+    if (!db.objectStoreNames.contains('blacklist')) {
+      db.createObjectStore('blacklist', { keyPath: 'phone_number' });
     }
   }
 
@@ -3618,11 +3989,14 @@
     box.querySelectorAll('.chip').forEach(c => c.remove());
     textRecipients.forEach((num, i) => {
       const chip = document.createElement('span');
-      chip.className = 'chip';
-      chip.innerHTML = `${num}<button type="button" onclick="removeTextChip(${i})" title="Remove">&#x2715;</button>`;
+      const blocked = typeof blIsBlacklisted === 'function' && blIsBlacklisted(num);
+      chip.className = 'chip' + (blocked ? ' blocked' : '');
+      if (blocked) chip.title = 'On the blacklist — will be skipped on send';
+      chip.innerHTML = `${blocked ? '🚫 ' : ''}${num}<button type="button" onclick="removeTextChip(${i})" title="Remove">&#x2715;</button>`;
       box.insertBefore(chip, input);
     });
     updateQueueState();
+    if (typeof blUpdateComposeWarning === 'function') blUpdateComposeWarning();
     // update placeholder visibility
     input.placeholder = textRecipients.length ? 'Add another…' : 'Type a number and press Enter…';
   }
@@ -5648,7 +6022,7 @@
       return;
     }
     chatState.initialized = true;
-    window.__WA_BUILD__ = '2026-06-01b-sortfix';
+    window.__WA_BUILD__ = '2026-06-10-blacklist';
     console.log('%c[WA] build ' + window.__WA_BUILD__, 'color:#16a34a;font-weight:bold;font-size:14px');
     console.log('[Chat] chatInit starting...');
     // One-time cleanup v3: previous bug saved ALL jids as archived in both
