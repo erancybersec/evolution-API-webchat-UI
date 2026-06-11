@@ -88,6 +88,26 @@
     .chat-react-picker { position:fixed; display:flex; gap:2px; background:#fff; border-radius:24px; box-shadow:0 2px 12px rgba(0,0,0,.15); padding:4px 8px; z-index:500; }
     .chat-react-picker button { font-size:20px; border:none; background:none; cursor:pointer; padding:4px; border-radius:50%; }
     .chat-react-picker button:hover { background:#f0f0f0; }
+    /* WhatsApp-Web-style hover actions on message bubbles */
+    .chat-hover-menu-btn { position:absolute; top:1px; right:1px; width:26px; height:22px; border:none; cursor:pointer; display:flex; align-items:center; justify-content:flex-end; padding:0 4px 0 0; color:#8696a0; opacity:0; transition:opacity .12s, transform .12s; border-radius:0 8px 0 8px; z-index:5; }
+    .chat-bubble-out .chat-hover-menu-btn { background:linear-gradient(15deg, rgba(217,253,211,0), rgba(217,253,211,.95) 45%); }
+    .chat-bubble-in  .chat-hover-menu-btn { background:linear-gradient(15deg, rgba(255,255,255,0), rgba(255,255,255,.95) 45%); }
+    .chat-hover-react-btn { width:28px; height:28px; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#8696a0; background:rgba(255,255,255,.85); border-radius:50%; box-shadow:0 1px 3px rgba(0,0,0,.12); opacity:0; transition:opacity .12s; shrink:0; align-self:center; }
+    .chat-hover-react-btn:hover { color:#54656f; background:#fff; }
+    @media (hover:hover) {
+      [data-msg-id]:hover .chat-hover-menu-btn, [data-msg-id]:hover .chat-hover-react-btn { opacity:1; }
+      .chat-hover-menu-btn:hover { color:#54656f; }
+    }
+    /* Inline edit-in-bubble */
+    .chat-inline-edit textarea { width:100%; min-width:220px; border:none; background:rgba(255,255,255,.65); border-radius:6px; padding:6px 8px; font-size:.875rem; line-height:1.4; resize:none; outline:none; color:#111827; }
+    .chat-inline-edit textarea:focus { box-shadow:0 0 0 2px rgba(37,211,102,.45); }
+    .chat-inline-edit-actions { display:flex; align-items:center; justify-content:flex-end; gap:8px; margin-top:6px; }
+    .chat-inline-edit-actions button { border:none; cursor:pointer; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; }
+    .chat-inline-edit-cancel { background:transparent; color:#6b7280; }
+    .chat-inline-edit-cancel:hover { background:rgba(0,0,0,.06); }
+    .chat-inline-edit-save { background:#25D366; color:#fff; }
+    .chat-inline-edit-save:hover { background:#1ebe5d; }
+    .chat-inline-edit-save:disabled { background:#a7d8bb; cursor:default; }
     .chat-reaction-badge { display:inline-flex; align-items:center; gap:2px; background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:2px 7px; font-size:15px; cursor:default; box-shadow:0 1px 3px rgba(0,0,0,.08); transition:transform .1s; }
     .chat-reaction-badge:hover { transform:scale(1.12); }
     .chat-reaction-count { font-size:11px; color:#374151; font-weight:600; margin-left:2px; }
@@ -496,11 +516,11 @@
               <button id="chat-mic-btn" onclick="chatToggleVoiceRecord()" class="w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full shrink-0 text-gray-500" title="Record voice">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-14 0m7 7v3m-4 0h8M12 3a3 3 0 00-3 3v5a3 3 0 006 0V6a3 3 0 00-3-3z"/></svg>
               </button>
-              <button id="chat-send-btn" onclick="chatSend()" class="w-10 h-10 flex items-center justify-center bg-[#25D366] hover:bg-[#1ebe5d] text-white rounded-full shrink-0" title="Send">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/></svg>
-              </button>
               <button onclick="chatToggleSchedule()" class="w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full shrink-0 text-gray-500" title="Schedule send">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              </button>
+              <button id="chat-send-btn" onclick="chatSend()" class="w-10 h-10 flex items-center justify-center bg-[#25D366] hover:bg-[#1ebe5d] text-white rounded-full shrink-0" title="Send">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/></svg>
               </button>
             </div>
             <!-- Voice recording bar -->
@@ -6656,6 +6676,9 @@
   // ── Render messages ──────────────────────────────────────────────────
   function chatRenderMessages() {
     const el = document.getElementById('chat-messages');
+    // Don't re-render while a message is being edited inline — it would wipe the editor.
+    if (chatState._editing && el && el.querySelector('.chat-inline-edit')) return;
+    chatState._editing = null;
     if (!chatState.messages.length) {
       el.innerHTML = '<div class="flex items-center justify-center h-full text-gray-400 text-sm">No messages yet. Say hello!</div>';
       return;
@@ -6954,13 +6977,22 @@
     const ctxAttr = chatState.selectMode ? '' : `oncontextmenu="chatContextMenu(event,'${m.id}')"`;
     const clickAttr = chatState.selectMode ? `onclick="chatToggleSelect('${m.id}')"` : '';
 
+    // WhatsApp-Web-style hover actions: chevron menu inside the bubble, react smiley beside it
+    const menuBtnHtml = chatState.selectMode ? '' : `<button class="chat-hover-menu-btn" onclick="event.stopPropagation();chatContextMenu(event,'${m.id}')" title="Message options">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
+    </button>`;
+    const reactBtnHtml = chatState.selectMode ? '' : `<button class="chat-hover-react-btn" onclick="event.stopPropagation();chatReactTo('${m.id}')" title="React">
+      <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    </button>`;
+
     return `<div class="flex flex-col ${m.fromMe ? 'items-end' : 'items-start'} mb-1 group${selectedBg}" data-msg-id="${m.id}" ${clickAttr}>
       <div class="flex items-end gap-1 ${align} w-full">
         ${m.fromMe ? '' : cbHtml}
+        ${m.fromMe ? reactBtnHtml : ''}
         <div class="chat-sel-bubble ${maxW} ${bubbleCls} px-2.5 py-1.5 shadow-sm relative" ${ctxAttr}>
-          ${senderHtml}${quotedHtml}${contentHtml}${timeHtml}
+          ${menuBtnHtml}${senderHtml}${quotedHtml}${contentHtml}${timeHtml}
         </div>
-        ${m.fromMe ? cbHtml : ''}
+        ${m.fromMe ? cbHtml : reactBtnHtml}
       </div>
       ${reactionsHtml}
     </div>`;
@@ -7295,11 +7327,12 @@
     function hideIcon() { const i = document.getElementById('chat-swipe-icon'); if (i) { i.style.opacity = '0'; i.style.display = 'none'; } }
     function start(e) {
       if (chatState.selectMode) return;
+      if (!e.touches && e.button !== 0) return; // mouse: left button only
       const t = e.touches ? e.touches[0] : e;
       const row = e.target.closest && e.target.closest('#chat-messages [data-msg-id]');
       if (!row || !row.dataset.msgId) return;
-      if (e.target.closest('audio,video,a,button,input,textarea')) return; // don't hijack controls
-      sw = { row, id: row.dataset.msgId, x0: t.clientX, y0: t.clientY, dx: 0, active: false };
+      if (e.target.closest('audio,video,a,button,input,textarea,.chat-inline-edit')) return; // don't hijack controls
+      sw = { row, id: row.dataset.msgId, x0: t.clientX, y0: t.clientY, dx: 0, active: false, mouse: !e.touches };
       row.style.transition = 'none';
     }
     function move(e) {
@@ -7309,7 +7342,9 @@
       if (!sw.active) {
         if (Math.abs(dx) < 8) return;
         if (Math.abs(dx) <= Math.abs(dy)) { sw = null; return; } // vertical → let it scroll
+        if (sw.mouse && dx < 0) { sw = null; return; } // leftward mouse drag = text selection, leave it alone
         sw.active = true; swIcon();
+        if (sw.mouse) { document.body.style.userSelect = 'none'; getSelection()?.removeAllRanges(); } // no text selection mid-swipe
       }
       if (e.cancelable) e.preventDefault();
       sw.dx = Math.max(0, Math.min(dx, MAX));
@@ -7331,6 +7366,7 @@
       sw.row.style.transition = 'transform .18s ease';
       sw.row.style.transform = '';
       hideIcon();
+      document.body.style.userSelect = '';
       const id = sw.id; sw = null;
       if (fire && typeof chatReplyTo === 'function') chatReplyTo(id);
     }
@@ -7338,6 +7374,12 @@
     document.addEventListener('touchmove', move, { passive: false });
     document.addEventListener('touchend', end);
     document.addEventListener('touchcancel', end);
+    // Desktop: same gesture with the mouse (drag a bubble right to reply)
+    document.addEventListener('mousedown', start);
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', end);
+    // Don't let the browser start a native image/text drag mid-swipe
+    document.addEventListener('dragstart', function (e) { if (sw && e.target.closest && e.target.closest('#chat-messages')) e.preventDefault(); });
   })();
 
   // ── Reactions ────────────────────────────────────────────────────────
@@ -7409,28 +7451,80 @@
     if (!msg) return;
     const menu = document.createElement('div');
     menu.className = 'chat-ctx-menu';
-    menu.style.left = event.clientX + 'px';
-    menu.style.top = event.clientY + 'px';
     let items = `<button onclick="chatReplyTo('${msgId}');this.parentElement.remove()">↩ Reply</button>`;
     items += `<button onclick="chatReactTo('${msgId}');this.parentElement.remove()">😀 React</button>`;
-    items += `<button onclick="chatEnterSelectMode('${msgId}');this.parentElement.remove()">☑ Select</button>`;
-    if (msg.type === 'text' && msg.text) items += `<button onclick="chatCopyWithMeta('${msgId}');this.parentElement.remove()">📋 Copy</button>`;
     if (msg.fromMe && msg.type === 'text' && (Date.now() - (msg.timestamp || 0) < 15 * 60 * 1000)) items += `<button onclick="chatEditMsg('${msgId}');this.parentElement.remove()">✏️ Edit</button>`;
+    if (msg.text || msg.caption) items += `<button onclick="chatForwardOne('${msgId}');this.parentElement.remove()">↗ Forward</button>`;
+    if (msg.text || msg.caption) items += `<button onclick="chatCopyWithMeta('${msgId}');this.parentElement.remove()">📋 Copy</button>`;
+    items += `<button onclick="chatEnterSelectMode('${msgId}');this.parentElement.remove()">☑ Select</button>`;
     items += `<button onclick="chatDeleteMsg('${msgId}');this.parentElement.remove()">🗑 Delete</button>`;
     menu.innerHTML = items;
     document.body.appendChild(menu);
+    // Clamp inside the viewport (chevron clicks near the right edge / bottom)
+    const mw = menu.offsetWidth || 170, mh = menu.offsetHeight || 200;
+    menu.style.left = Math.max(4, Math.min(event.clientX, window.innerWidth - mw - 8)) + 'px';
+    menu.style.top = Math.max(4, Math.min(event.clientY, window.innerHeight - mh - 8)) + 'px';
     const close = (e) => { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', close); } };
     setTimeout(() => document.addEventListener('click', close), 10);
   }
 
-  // ── Edit a sent message (WhatsApp allows ~15 min) ────────────────────
-  async function chatEditMsg(msgId) {
+  function chatForwardOne(msgId) {
+    const msg = chatState.messages.find(m => m.id === msgId);
+    if (!msg) return;
+    chatShowForwardModal(msg.text || msg.caption || '');
+  }
+
+  // ── Edit a sent message, inline on the bubble (WhatsApp allows ~15 min) ──
+  function chatEditMsg(msgId) {
     const msg = chatState.messages.find(m => m.id === msgId);
     if (!msg || !msg.fromMe || msg.type !== 'text') return;
-    const next = prompt('Edit message:', msg.text || '');
-    if (next == null) return;
-    const text = next.trim();
-    if (!text || text === msg.text) return;
+    chatEditCancel(); // close any other open editor first
+    const row = document.querySelector(`#chat-messages [data-msg-id="${msgId}"]`);
+    const bubble = row && row.querySelector('.chat-sel-bubble');
+    if (!bubble) return;
+    chatState._editing = msgId;
+    bubble.innerHTML = '';
+    const wrap = document.createElement('div');
+    wrap.className = 'chat-inline-edit';
+    const ta = document.createElement('textarea');
+    ta.rows = 1; ta.dir = 'auto'; ta.value = msg.text || '';
+    ta.addEventListener('input', () => {
+      ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 160) + 'px';
+      saveBtn.disabled = !ta.value.trim() || ta.value.trim() === msg.text;
+    });
+    ta.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chatEditCommit(msgId, ta.value); }
+      else if (e.key === 'Escape') { e.stopPropagation(); chatEditCancel(); }
+    });
+    const actions = document.createElement('div');
+    actions.className = 'chat-inline-edit-actions';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'chat-inline-edit-cancel'; cancelBtn.title = 'Cancel (Esc)';
+    cancelBtn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg>';
+    cancelBtn.onclick = () => chatEditCancel();
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'chat-inline-edit-save'; saveBtn.title = 'Save (Enter)'; saveBtn.disabled = true;
+    saveBtn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+    saveBtn.onclick = () => chatEditCommit(msgId, ta.value);
+    actions.append(cancelBtn, saveBtn);
+    wrap.append(ta, actions);
+    bubble.appendChild(wrap);
+    ta.dispatchEvent(new Event('input'));
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+  }
+
+  function chatEditCancel() {
+    if (!chatState._editing) return;
+    chatState._editing = null;
+    chatRenderMessages();
+  }
+
+  async function chatEditCommit(msgId, value) {
+    const msg = chatState.messages.find(m => m.id === msgId);
+    const text = (value || '').trim();
+    chatState._editing = null;
+    if (!msg || !text || text === msg.text) { chatRenderMessages(); return; }
     try {
       const cfg = getCfg();
       await chatApiCall(`/chat/updateMessage/${cfg.instance}`, {
@@ -7444,7 +7538,7 @@
       if (am) { am.text = text; am.edited = true; }
       chatRenderMessages();
       chatShowToast('Message edited', 'info');
-    } catch (e) { chatShowToast('Edit failed', 'error'); }
+    } catch (e) { chatRenderMessages(); chatShowToast('Edit failed', 'error'); }
   }
 
   // ── Live presence (typing / online) from the WebSocket presence.update ──
@@ -8068,7 +8162,9 @@
     if (e.key === 'Escape') {
       chatCloseLightbox();
       chatCloseNewModal();
-      document.querySelectorAll('.chat-ctx-menu,.chat-react-picker,.chat-delete-modal').forEach(el => el.remove());
+      if (typeof chatEditCancel === 'function') chatEditCancel();
+      if (chatState && chatState.replyTo) chatCancelReply();
+      document.querySelectorAll('.chat-ctx-menu,.chat-react-picker,.chat-delete-modal,.chat-forward-modal').forEach(el => el.remove());
     }
   });
 </script>
